@@ -533,83 +533,6 @@ button {
 }
 
 
-.name-section {
-
-    display: grid;
-
-    grid-template-columns:
-        1fr 2fr;
-
-    gap: 20px;
-
-    margin-top: 20px;
-
-}
-
-
-.name-section label {
-
-    color: #c7d2fe;
-
-}
-
-
-.name-section select {
-
-    width: 100%;
-
-    padding: 12px;
-
-    margin-top: 8px;
-
-    border-radius: 10px;
-
-    background: #1e1b4b;
-
-    color: white;
-
-    border:
-        1px solid
-        rgba(
-            255,
-            255,
-            255,
-            0.15
-        );
-
-}
-
-
-.focus-message {
-
-    padding: 14px 20px;
-
-    border-radius: 12px;
-
-    background:
-        rgba(
-            99,
-            102,
-            241,
-            0.15
-        );
-
-    border:
-        1px solid
-        rgba(
-            139,
-            92,
-            246,
-            0.35
-        );
-
-    color: #c7d2fe;
-
-    margin-top: 25px;
-
-}
-
-
 /* =========================================================
    FAQ
    ========================================================= */
@@ -916,14 +839,6 @@ button {
 
 
     .kpi-grid {
-
-        grid-template-columns:
-            1fr;
-
-    }
-
-
-    .name-section {
 
         grid-template-columns:
             1fr;

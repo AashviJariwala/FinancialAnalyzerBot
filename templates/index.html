@@ -205,36 +205,6 @@
                 </h2>
 
 
-                <div class="name-section">
-
-                    <div>
-
-                        <label>
-                            👤 Who are you asking for?
-                        </label>
-
-                        <select id="chatName">
-
-                            <option value="">
-                                — Select a person —
-                            </option>
-
-                        </select>
-
-                    </div>
-
-
-                    <div id="focusMessage" class="focus-message">
-
-                        ℹ️ No person selected —
-                        answers will cover the
-                        <b>entire family portfolio</b>.
-
-                    </div>
-
-                </div>
-
-
                 <!-- FAQ -->
 
                 <div class="faq-wrapper">
@@ -297,10 +267,10 @@
                 icon: "📊",
                 label: "Portfolio Overview",
                 questions: [
-                    "What is {name} total portfolio value?",
-                    "What is {name} overall XIRR / annualised return?",
-                    "How much has {name} invested so far (cost of investment)?",
-                    "What is the total gain or loss in {name} portfolio?"
+                    "What is the total portfolio value?",
+                    "What is the overall XIRR / annualised return?",
+                    "How much has been invested so far (cost of investment)?",
+                    "What is the total gain or loss in the portfolio?"
                 ]
             },
 
@@ -308,8 +278,8 @@
                 icon: "💳",
                 label: "SIP & Investments",
                 questions: [
-                    "Show all active SIPs for {name}",
-                    "What is the monthly SIP amount for {name}?",
+                    "Show all active SIPs",
+                    "What is the monthly SIP amount?",
                     "Which SIPs are currently paused or stopped?"
                 ]
             },
@@ -318,9 +288,9 @@
                 icon: "🏆",
                 label: "Performance & Schemes",
                 questions: [
-                    "Which scheme is performing best for {name}?",
+                    "Which scheme is performing best?",
                     "Which fund has the highest unrealised gain?",
-                    "List all equity funds in {name} portfolio",
+                    "List all equity funds in the portfolio",
                     "Which funds are giving negative returns?"
                 ]
             },
@@ -329,10 +299,10 @@
                 icon: "💡",
                 label: "Advice & Recommendations",
                 questions: [
-                    "Suggest portfolio improvements for {name}",
-                    "Is {name} portfolio well diversified?",
-                    "Should {name} increase SIP amount based on current performance?",
-                    "What is the risk profile of {name} portfolio?"
+                    "Suggest portfolio improvements",
+                    "Is the portfolio well diversified?",
+                    "Should I increase SIP amount based on current performance?",
+                    "What is the risk profile of the portfolio?"
                 ]
             }
 
@@ -552,40 +522,6 @@
                 );
 
 
-            // Holder dropdown
-
-            const select =
-                document.getElementById(
-                    "chatName"
-                );
-
-
-            select.innerHTML =
-                '<option value="">— Select a person —</option>';
-
-
-            holders.forEach(
-                holder => {
-
-                    const option =
-                        document.createElement(
-                            "option"
-                        );
-
-                    option.value =
-                        holder;
-
-                    option.textContent =
-                        holder;
-
-                    select.appendChild(
-                        option
-                    );
-
-                }
-            );
-
-
             createFAQs();
 
         }
@@ -644,9 +580,7 @@
 
 
                             button.innerText =
-                                replaceName(
-                                    question
-                                );
+                                question;
 
 
                             button.onclick =
@@ -673,99 +607,6 @@
 
                 }
             );
-
-        }
-
-
-        function replaceName(
-            question
-        ) {
-
-            const select =
-                document.getElementById(
-                    "chatName"
-                );
-
-
-            const name =
-                select.value;
-
-
-            if (!name) {
-
-                return question;
-
-            }
-
-
-            const firstName =
-                name
-                    .split(" ")[0]
-                    .replace(
-                        /^./,
-                        c => c.toUpperCase()
-                    );
-
-
-            return question.replace(
-                "{name}",
-                firstName + "'s"
-            );
-
-        }
-
-
-        document
-            .getElementById(
-                "chatName"
-            )
-            .addEventListener(
-                "change",
-                function () {
-
-                    updateFocusMessage();
-
-                    createFAQs();
-
-                }
-            );
-
-
-        function updateFocusMessage() {
-
-            const name =
-                document.getElementById(
-                    "chatName"
-                ).value;
-
-
-            const box =
-                document.getElementById(
-                    "focusMessage"
-                );
-
-
-            if (name) {
-
-                const firstName =
-                    name.split(" ")[0];
-
-
-                box.innerHTML =
-                    `✅ <b>Focused on ${firstName}</b> —
-            all answers will be based on
-            ${name}'s portfolio only.`;
-
-            }
-
-            else {
-
-                box.innerHTML =
-                    `ℹ️ No person selected —
-            answers will cover the
-            <b>entire family portfolio</b>.`;
-
-            }
 
         }
 
@@ -807,12 +648,6 @@
             }
 
 
-            const selectedName =
-                document.getElementById(
-                    "chatName"
-                ).value;
-
-
             input.value = "";
 
 
@@ -844,10 +679,7 @@
 
                             body: JSON.stringify({
 
-                                message: message,
-
-                                chat_name:
-                                    selectedName
+                                message: message
 
                             })
 

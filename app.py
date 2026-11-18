@@ -64,7 +64,7 @@ def handle_exception(e):
 
 URL = "https://www.money2management.com/"
 
-DOWNLOAD_DIR = os.path.join("/tmp", "Data")
+DOWNLOAD_DIR = "Data" #join("/tmp", "Data")
 USERNAME = os.environ.get("M2M_USERNAME")
 PASSWORD = os.environ.get("M2M_PASSWORD")
 EMAIL = os.environ.get("M2M_EMAIL")
@@ -733,11 +733,6 @@ def chat():
         ""
     ).strip()
 
-    selected_name = data.get(
-        "chat_name",
-        ""
-    ).strip()
-
     if not actual_query:
 
         return jsonify({
@@ -788,39 +783,30 @@ def chat():
         ]
 
     # --------------------------------------------------------
-    # Name Detection
-    # Priority:
-    # 1. Selected name
-    # 2. Query text
+    # Name Detection from query text
     # --------------------------------------------------------
 
     detected_name = None
 
-    if selected_name:
+    query_lower = actual_query.lower()
 
-        detected_name = selected_name
+    for holder in holders_list:
 
-    else:
+        for part in holder.split():
 
-        query_lower = actual_query.lower()
+            if (
+                len(part) > 2
+                and part.lower()
+                in query_lower
+            ):
 
-        for holder in holders_list:
-
-            for part in holder.split():
-
-                if (
-                    len(part) > 2
-                    and part.lower()
-                    in query_lower
-                ):
-
-                    detected_name = holder
-
-                    break
-
-            if detected_name:
+                detected_name = holder
 
                 break
+
+        if detected_name:
+
+            break
 
     # --------------------------------------------------------
     # Build context-aware system prompt
