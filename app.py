@@ -17,6 +17,14 @@ OLLAMA_HOST = os.getenv(
     "OLLAMA_HOST",
     "http://localhost:11434"
 )
+OLLAMA_MODEL = os.getenv(
+    "OLLAMA_MODEL",
+    "llama3.2"
+)
+OLLAMA_NUM_GPU = int(os.getenv(
+    "OLLAMA_NUM_GPU",
+    "0"
+))
 
 ollama_client = ollama.Client(host=OLLAMA_HOST)
 
@@ -886,7 +894,7 @@ def chat():
 
         response = ollama_client.chat(
 
-            model="llama3",
+            model=OLLAMA_MODEL,
 
             messages=[
 
@@ -905,7 +913,8 @@ def chat():
             stream=False,
 
             options={
-                "num_predict": 512
+                "num_predict": 512,
+                "num_gpu": OLLAMA_NUM_GPU
             }
 
         )
@@ -917,8 +926,8 @@ def chat():
     except Exception as e:
 
         full_response = (
-            f"Error contacting Ollama: {e}. "
-            "Please make sure Ollama is running."
+            f"Error contacting Ollama ({OLLAMA_MODEL}): {e}. "
+            "Please make sure Ollama is running and the model is pulled."
         )
 
     # --------------------------------------------------------
