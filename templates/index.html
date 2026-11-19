@@ -334,9 +334,8 @@
             );
 
 
-            const formData = new FormData();
-            formData.append("client_name", clientName);
-
+            const bodyParams = new URLSearchParams();
+            bodyParams.append("client_name", clientName);
 
             let job_id = null;
 
@@ -347,8 +346,21 @@
 
                 const startRes = await fetch(
                     "/start-fetch",
-                    { method: "POST", body: formData }
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Accept": "application/json"
+                        },
+                        body: bodyParams
+                    }
                 );
+
+                const contentType = startRes.headers.get("content-type") || "";
+                if (!contentType.includes("application/json")) {
+                    showStatus("❌ Server returned non-JSON response (" + startRes.status + "). Please check if backend is running.", "error");
+                    return;
+                }
 
                 const startData = await startRes.json();
 
@@ -360,7 +372,7 @@
                 job_id = startData.job_id;
 
             } catch (err) {
-                showStatus("❌ Failed to start fetch: " + err, "error");
+                showStatus("❌ Failed to start fetch: " + err.message, "error");
                 return;
             }
 
@@ -382,8 +394,16 @@
                 try {
 
                     const statusRes = await fetch(
-                        `/job-status/${job_id}`
+                        `/job-status/${job_id}`,
+                        { headers: { "Accept": "application/json" } }
                     );
+
+                    const contentType = statusRes.headers.get("content-type") || "";
+                    if (!contentType.includes("application/json")) {
+                        clearInterval(pollInterval);
+                        showStatus("❌ Polling error: Server returned non-JSON response (" + statusRes.status + ").", "error");
+                        return;
+                    }
 
                     const statusData = await statusRes.json();
 
@@ -414,7 +434,7 @@
 
                 } catch (err) {
                     clearInterval(pollInterval);
-                    showStatus("❌ " + err, "error");
+                    showStatus("❌ " + err.message, "error");
                 }
 
             }, 2000);
@@ -686,6 +706,15 @@
                         }
                     );
 
+
+                const contentType = response.headers.get("content-type") || "";
+                if (!contentType.includes("application/json")) {
+                    const history = document.getElementById("chatHistory");
+                    const last = history.lastElementChild;
+                    if (last && last.classList.contains("chat-bot")) last.remove();
+                    addChatMessage("bot", "❌ Server returned non-JSON response. Please ensure backend is running.");
+                    return;
+                }
 
                 const data =
                     await response.json();
