@@ -19,10 +19,59 @@ ASK_NAME = "Please enter the client name exactly as it appears on the website."
 UNAVAILABLE = "I couldn't answer that question. Please try again."
 
 
+MENU_SECTIONS = (
+    ("📂 Portfolio Overview", (
+        (1, "Portfolio Summary", "Summarize the amount invested, current value, gains, and annual return (XIRR)."),
+        (2, "Detailed Holdings", "List the schemes and summarize nominee information where available."),
+        (3, "Family Breakdown", "Show the portfolio allocation across family holders."),
+    )),
+    ("📈 Performance & Projections", (
+        (4, "Annual Return (XIRR)", "What is the portfolio's annual return (XIRR)?"),
+        (5, "Best-performing Scheme", "Which scheme is performing best? State the metric used."),
+        (9, "Highest Unrealised Gain", "Which fund has the highest unrealised gain?"),
+        (10, "Equity Funds", "List all equity funds in the portfolio."),
+        (11, "Negative Returns", "Which funds are giving negative returns?"),
+    )),
+    ("📅 SIPs & Bank Details", (
+        (6, "Monthly SIP Amount", "What is the total monthly SIP amount?"),
+        (7, "Upcoming SIP Dates", "List upcoming SIP dates shown in the portfolio data."),
+        (8, "Registered Bank Details", "Show registered bank names and any already-masked account identifiers available. Omit full account numbers."),
+        (12, "Active SIPs", "Show all active SIPs."),
+        (13, "Paused or Stopped SIPs", "Which SIPs are currently paused or stopped?"),
+    )),
+    ("💬 Advice & Recommendations", (
+        (14, "Portfolio Improvements", "Suggest portfolio improvements based on the available data."),
+        (15, "Diversification", "Is the portfolio well diversified?"),
+        (16, "Increasing SIPs", "What should I consider before increasing my SIP amount based on current performance?"),
+        (17, "Portfolio Risk", "What is the risk profile of the portfolio based on the available data?"),
+    )),
+)
+MENU_QUESTIONS = {
+    str(number): question
+    for _, options in MENU_SECTIONS
+    for number, _, question in options
+}
+
+
+def _menu(client_name):
+    name = " ".join(client_name.split())[:100].translate(str.maketrans("", "", "*_~`"))
+    lines = [
+        f"👋 *Hello {name}!* Welcome to your Personal Investment Suite.",
+        "",
+        "Reply with an option number (e.g. *1*) or ask a question in your own words.",
+    ]
+    for heading, options in MENU_SECTIONS:
+        lines.extend(("", f"*{heading}*"))
+        lines.extend(f"{number}. {label}" for number, label, _ in options)
+    lines.extend(("", "💡 Type *menu* to see these options or *reset* to enter another client name."))
+    return "\n".join(lines)
+
+
 @dataclass
 class Conversation:
     file_path: str | None = None
     busy: bool = False
+    client_name: str | None = None
 
 
 def _reply(message=None):
@@ -43,13 +92,15 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
 
     def run_task(conversation, text, loading, twilio, sender, recipient):
         file_path = conversation.file_path
+        client_name = conversation.client_name
         try:
             if loading:
                 downloaded = download_portfolio(text)
                 if load_analyzer(downloaded) is None:
                     raise ValueError("Unable to parse portfolio")
                 file_path = str(Path(downloaded).resolve())
-                message = "Portfolio loaded. Send your question, or type CHANGE to load another client."
+                client_name = text
+                message = _menu(client_name)
             else:
                 # Reuse app.py's chatbot with the selected WhatsApp portfolio.
                 with app.test_request_context("/chat", method="POST", json={"message": text}):
@@ -75,6 +126,7 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
         finally:
             with lock:
                 conversation.file_path = file_path
+                conversation.client_name = client_name
                 conversation.busy = False
 
     @app.post(WEBHOOK_PATH)
@@ -140,17 +192,28 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
                 return _reply(ASK_NAME)
             if conversation.busy:
                 return _reply("I'm still processing your previous message. Please wait for the reply.")
-            if text.casefold() in {"change", "reset"}:
+            command = text.casefold()
+            if command in {"change", "reset"}:
                 conversation.file_path = None
+                conversation.client_name = None
                 return _reply(ASK_NAME)
             if not text:
                 return _reply(ASK_NAME if not conversation.file_path else "Please send a question as text.")
 
             if conversation.file_path and not Path(conversation.file_path).is_file():
                 conversation.file_path = None
+                conversation.client_name = None
                 return _reply("Your portfolio file is no longer available. " + ASK_NAME)
 
             loading = conversation.file_path is None
+            if command == "menu":
+                return _reply(ASK_NAME if loading else _menu(conversation.client_name))
+            if not loading and text.isdecimal():
+                question = MENU_QUESTIONS.get(text)
+                if question is None:
+                    return _reply("Please choose a number from *menu*, or type your question.")
+                text = question
+
             conversation.busy = True
             try:
                 executor.submit(
@@ -162,3 +225,4 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
                 app.logger.error("Could not schedule the WhatsApp request")
                 return _reply(UNAVAILABLE)
         return _reply()
+
