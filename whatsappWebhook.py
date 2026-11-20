@@ -229,5 +229,6 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
                 conversation.busy = False
                 app.logger.error("Could not schedule the WhatsApp request")
                 return _reply(UNAVAILABLE)
-        return _reply()
+        return _reply("⏳ Loading your portfolio… Please wait.") if loading else _reply()
+
 
