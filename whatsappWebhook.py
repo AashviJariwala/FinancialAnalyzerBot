@@ -15,7 +15,12 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 WEBHOOK_PATH = "/whatsapp/webhook"
 WHATSAPP_NUMBER = re.compile(r"whatsapp:(\+[1-9][0-9]{1,14})")
-ASK_NAME = "Please enter the client name exactly as it appears on the website."
+ASK_NAME = """
+👋Welcome to your Personal Investment Suite!
+I am your dedicated digital financial companion. I can help you track your investments, view SIP details, monitor performance, and generate tax statements.
+
+To personalize your experience, could you please tell me your name?
+"""
 UNAVAILABLE = "I couldn't answer that question. Please try again."
 
 
@@ -28,14 +33,14 @@ MENU_SECTIONS = (
     ("📈 Performance & Projections", (
         (4, "Annual Return (XIRR)", "What is the portfolio's annual return (XIRR)?"),
         (5, "Best-performing Scheme", "Which scheme is performing best? State the metric used."),
-        (9, "Highest Unrealised Gain", "Which fund has the highest unrealised gain?"),
-        (10, "Equity Funds", "List all equity funds in the portfolio."),
-        (11, "Negative Returns", "Which funds are giving negative returns?"),
+        (6, "Highest Unrealised Gain", "Which fund has the highest unrealised gain?"),
+        (7, "Equity Funds", "List all equity funds in the portfolio."),
+        (8, "Negative Returns", "Which funds are giving negative returns?"),
     )),
     ("📅 SIPs & Bank Details", (
-        (6, "Monthly SIP Amount", "What is the total monthly SIP amount?"),
-        (7, "Upcoming SIP Dates", "List upcoming SIP dates shown in the portfolio data."),
-        (8, "Registered Bank Details", "Show registered bank names and any already-masked account identifiers available. Omit full account numbers."),
+        (9, "Monthly SIP Amount", "What is the total monthly SIP amount?"),
+        (10, "Upcoming SIP Dates", "List upcoming SIP dates shown in the portfolio data."),
+        (11, "Registered Bank Details", "Show registered bank names and any already-masked account identifiers available. Omit full account numbers."),
         (12, "Active SIPs", "Show all active SIPs."),
         (13, "Paused or Stopped SIPs", "Which SIPs are currently paused or stopped?"),
     )),
