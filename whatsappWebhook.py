@@ -33,6 +33,7 @@ def _reply(message=None):
 
 
 def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
+    print("inside register whatsapp webhook")
     """Register after app.py has defined its /chat route."""
     chat_view = app.view_functions["chat"]
     conversations = {}
@@ -84,25 +85,46 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
         if not all((public_url, auth_token, account_sid)):
             return Response(status=503)
 
+
         signature = request.headers.get("X-Twilio-Signature", "")
-        if request.query_string or not RequestValidator(auth_token).validate(
-            public_url, request.form, signature
-        ):
+
+        if request.query_string:
+            app.logger.warning("WhatsApp webhook: unexpected query string")
             return Response(status=403)
-        if request.form.get("AccountSid") != account_sid:
+
+        if not signature:
+            app.logger.warning("WhatsApp webhook: signature header missing")
+            return Response(status=403)
+
+        if not RequestValidator(auth_token.strip()).validate(
+            public_url.strip(), request.form, signature
+        ):
+            app.logger.warning("WhatsApp webhook: signature mismatch")
+            return Response(status=403)
+
+        if request.form.get("AccountSid") != account_sid.strip():
+            app.logger.warning("WhatsApp webhook: Account SID mismatch")
             return Response(status=403)
 
         sender = request.form.get("From", "")
+        if not sender:
+            wa_id = request.form.get("WaId", "")
+            if re.fullmatch(r"[1-9][0-9]{1,14}", wa_id):
+                sender = f"whatsapp:+{wa_id}"
+
         recipient = request.form.get("To", "")
         number = WHATSAPP_NUMBER.fullmatch(sender)
         message_sid = request.form.get("MessageSid")
-        if not number or not WHATSAPP_NUMBER.fullmatch(recipient) or not message_sid:
-            return Response(status=400)
 
+        if not number or not WHATSAPP_NUMBER.fullmatch(recipient) or not message_sid:
+            app.logger.warning("WhatsApp webhook: missing or invalid sender, recipient, or message SID")
+            return Response(status=400)
         # These are trusted operators who may select portfolios by name.
-        allowed = {phone.strip() for phone in os.getenv("WHATSAPP_ALLOWED_NUMBERS", "").split(",")}
-        if number.group(1) not in allowed:
+
+        allowed_number = os.getenv("TWILIO_WHATSAPP_NUMBER", "").strip()
+        if number.group(1) != allowed_number:
             return _reply("This WhatsApp number isn't enabled for portfolio access.")
+
 
         text = request.form.get("Body", "").strip()
         with lock:
