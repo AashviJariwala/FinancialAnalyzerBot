@@ -1,28 +1,18 @@
 import pandas as pd
 import os
-import ollama
+from groq import Groq
 import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List
 
-OLLAMA_HOST = os.getenv(
-    "OLLAMA_HOST",
-    "http://localhost:11434"
-)
-OLLAMA_MODEL = os.getenv(
-    "OLLAMA_MODEL",
-    "llama3.2"
-)
-OLLAMA_NUM_GPU = int(os.getenv(
-    "OLLAMA_NUM_GPU",
-    "0"
-))
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
-ollama_client = ollama.Client(host=OLLAMA_HOST)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 class FinancialAnalyzer:
-    """A Mutual Fund Advisor bot that parses a client's Excel portfolio and answers queries using Ollama."""
+    """A Mutual Fund Advisor bot that parses a client's Excel portfolio and answers queries using GroqCloud."""
 
     def __init__(self, excel_path: str | Path):
         self.excel_path = Path(excel_path)
@@ -292,7 +282,7 @@ class FinancialAnalyzer:
         return "\n".join(lines)
 
     def answer_question(self, query: str) -> str:
-        """Get advice or fact retrieval from Ollama (llama3) as a professional Mutual Fund Advisor."""
+        """Get advice or fact retrieval from GroqCloud as a professional Mutual Fund Advisor."""
         # Use compact summary to reduce token count (~800 tokens instead of ~4000)
         compact_data = self._generate_compact_summary()
 
@@ -304,17 +294,15 @@ class FinancialAnalyzer:
         )
 
         try:
-            response = ollama_client.chat(
-                model=OLLAMA_MODEL,
+            client = groq_client or Groq(api_key=os.getenv("GROQ_API_KEY"))
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": query}
                 ],
-                options={
-                    "num_predict": 512,
-                    "num_gpu": OLLAMA_NUM_GPU
-                }
+                max_tokens=512,
             )
-            return response["message"]["content"]
+            return response.choices[0].message.content
         except Exception as e:
-            return f"Error contacting Ollama ({OLLAMA_MODEL}): {e}. Please make sure Ollama is running and the model is pulled."
+            return f"Error contacting GroqCloud ({GROQ_MODEL}): {e}."

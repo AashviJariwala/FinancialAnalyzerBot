@@ -8,25 +8,18 @@ import sys
 import datetime
 import uuid
 import threading
-import ollama
+from groq import Groq
 from playwright.sync_api import sync_playwright
 
 load_dotenv()
 
-OLLAMA_HOST = os.getenv(
-    "OLLAMA_HOST",
-    "http://localhost:11434"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv(
+    "GROQ_MODEL",
+    "qwen/qwen3.8-27b"
 )
-OLLAMA_MODEL = os.getenv(
-    "OLLAMA_MODEL",
-    "llama3.2"
-)
-OLLAMA_NUM_GPU = int(os.getenv(
-    "OLLAMA_NUM_GPU",
-    "0"
-))
 
-ollama_client = ollama.Client(host=OLLAMA_HOST)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 
 
@@ -886,15 +879,16 @@ def chat():
         )
 
     # --------------------------------------------------------
-    # Ollama
+    # GroqCloud
     # --------------------------------------------------------
 
     try:
 
+        client = groq_client or Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-        response = ollama_client.chat(
+        response = client.chat.completions.create(
 
-            model=OLLAMA_MODEL,
+            model=GROQ_MODEL,
 
             messages=[
 
@@ -910,24 +904,18 @@ def chat():
 
             ],
 
-            stream=False,
-
-            options={
-                "num_predict": 512,
-                "num_gpu": OLLAMA_NUM_GPU
-            }
+            max_tokens=512,
 
         )
 
         full_response = (
-            response["message"]["content"]
+            response.choices[0].message.content
         )
 
     except Exception as e:
 
         full_response = (
-            f"Error contacting Ollama ({OLLAMA_MODEL}): {e}. "
-            "Please make sure Ollama is running and the model is pulled."
+            f"Error contacting GroqCloud ({GROQ_MODEL}): {e}."
         )
 
     # --------------------------------------------------------
