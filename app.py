@@ -974,6 +974,10 @@ def reset():
     })
 
 
+from whatsappWebhook import register_whatsapp_webhook
+
+register_whatsapp_webhook(app, run_server_download, load_analyzer)
+
 # ============================================================
 # RUN
 # ============================================================
