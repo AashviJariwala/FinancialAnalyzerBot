@@ -905,14 +905,22 @@ def chat():
 
             ],
 
-            max_tokens=512,
+            max_tokens=2048,
 
         )
 
         full_response = (
             response.choices[0].message.content
         )
+        print(
+            "Groq finish reason:",
+            response.choices[0].finish_reason
+        )
 
+        print(
+            "Groq response length:",
+            len(response.choices[0].message.content or "")
+        )
     except Exception as e:
 
         full_response = (

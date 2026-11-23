@@ -18,6 +18,8 @@ WHATSAPP_NUMBER = re.compile(r"whatsapp:(\+[1-9][0-9]{1,14})")
 ASK_NAME = ("👋 Welcome to your Personal Investment Suite!\n"
             "Please enter the client name exactly as it appears on the website.")
 UNAVAILABLE = "I couldn't answer that question. Please try again."
+LOADING_PORTFOLIO = "⏳ Loading your portfolio… Please wait."
+THINKING_MESSAGE = "🤔 Thinking… Preparing your answer, please wait."
 LEASE_MINUTES = 15
 MAX_HISTORY = 30
 
@@ -271,7 +273,7 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
                 app.logger.exception("Unable to schedule WhatsApp worker")
                 finish(sender, token, client_name, file_path, text, None, loading)
                 return _reply(UNAVAILABLE)
-            return _reply("⏳ Loading your portfolio… Please wait.") if loading else _reply()
+            return _reply(LOADING_PORTFOLIO if loading else THINKING_MESSAGE)
         except Exception:
             app.logger.exception("WhatsApp database/webhook failure")
             return Response("Temporary service issue", status=503)
