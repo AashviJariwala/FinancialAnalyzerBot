@@ -1,7 +1,7 @@
 """Persistent Twilio WhatsApp portfolio bot backed by PostgreSQL."""
-from itsdangerous import exc
 import os
 import re
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -21,6 +21,7 @@ ASK_NAME = ("👋 Welcome to your Personal Investment Suite!\n"
 UNAVAILABLE = "I couldn't answer that question. Please try again."
 LOADING_PORTFOLIO = "⏳ Loading your portfolio… Please wait."
 THINKING_MESSAGE = "🤔 Thinking… Preparing your answer, please wait."
+THINKING_DELAY_SECONDS = 5.0
 LEASE_MINUTES = 15
 MAX_HISTORY = 30
 
@@ -220,6 +221,36 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
     def run_task(sender, recipient, token, text, loading, client_name, file_path,
                  history, twilio):
         answer = None
+        thinking_timer = None
+
+        if not loading:
+            def send_thinking():
+                try:
+                    with _connect() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute("""
+                                SELECT 1 FROM whatsapp_conversations
+                                WHERE sender=%s AND task_token=%s
+                            """, (sender, token))
+                            if not cur.fetchone():
+                                return
+                    twilio.messages.create(
+                        from_=recipient,
+                        to=sender,
+                        body=THINKING_MESSAGE
+                    )
+                    app.logger.info(
+                        "Sent WhatsApp thinking message to %s after %ss delay",
+                        sender,
+                        THINKING_DELAY_SECONDS
+                    )
+                except Exception:
+                    app.logger.exception("Failed to send WhatsApp thinking message")
+
+            thinking_timer = threading.Timer(THINKING_DELAY_SECONDS, send_thinking)
+            thinking_timer.daemon = True
+            thinking_timer.start()
+
         try:
             if loading:
                 downloaded = download_portfolio(text)
@@ -260,6 +291,10 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
                 return
             message = ("I couldn't load that portfolio. Please enter the client name again."
                        if loading else UNAVAILABLE + " Your selected client is still saved.")
+        finally:
+            if thinking_timer is not None:
+                thinking_timer.cancel()
+
         if committed:
             send(twilio, sender, recipient, message)
 
@@ -356,7 +391,7 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
                 app.logger.exception("Unable to schedule WhatsApp worker")
                 finish(sender, token, client_name, file_path, text, None, loading)
                 return _reply(UNAVAILABLE)
-            return _reply(LOADING_PORTFOLIO if loading else THINKING_MESSAGE)
+            return _reply(LOADING_PORTFOLIO) if loading else _reply()
         except Exception:
             app.logger.exception("WhatsApp database/webhook failure")
             return Response("Temporary service issue", status=503)
