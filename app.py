@@ -1,3 +1,4 @@
+import utils.session
 from flask import Flask, render_template, request, jsonify, session
 from pathlib import Path
 from financialAnalyzer import FinancialAnalyzer
