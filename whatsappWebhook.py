@@ -100,33 +100,92 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
     _initialize_database()
 
     def send(twilio, sender, recipient, message):
-            try:
-                MAX_LENGTH = 1600
-                if len(message) <= MAX_LENGTH:
-                    twilio.messages.create(
-                        from_=recipient,
-                        to=sender,
-                        body=message
+        MAX_LENGTH = 1500
+        HEADER_RESERVE = 40
+        CHUNK_LENGTH = MAX_LENGTH - HEADER_RESERVE
+
+        try:
+            if not message:
+                return
+
+            parts = []
+            remaining = message
+
+            # Divide the complete GroqCloud response
+            while remaining:
+                if len(remaining) <= CHUNK_LENGTH:
+                    parts.append(remaining)
+                    break
+
+                # First preference: paragraph boundary
+                split_at = remaining.rfind(
+                    "\n\n", 0, CHUNK_LENGTH + 1
+                )
+
+                # Second preference: newline
+                if split_at < CHUNK_LENGTH // 2:
+                    split_at = remaining.rfind(
+                        "\n", 0, CHUNK_LENGTH + 1
+                    )
+
+                # Third preference: sentence boundary
+                if split_at < CHUNK_LENGTH // 2:
+                    split_at = remaining.rfind(
+                        ". ", 0, CHUNK_LENGTH + 1
+                    )
+                    if split_at >= 0:
+                        split_at += 1
+
+                # Fourth preference: word boundary
+                if split_at < CHUNK_LENGTH // 2:
+                    split_at = remaining.rfind(
+                        " ", 0, CHUNK_LENGTH + 1
+                    )
+
+                # Last resort: character boundary
+                if split_at <= 0:
+                    split_at = CHUNK_LENGTH
+
+                # Preserve every character, including spaces/newlines
+                parts.append(remaining[:split_at])
+                remaining = remaining[split_at:]
+
+            total_parts = len(parts)
+
+            app.logger.info(
+                "Sending WhatsApp response: %s characters, %s parts",
+                len(message),
+                total_parts
+            )
+
+            # Send each part in order
+            for index, part in enumerate(parts, start=1):
+
+                if total_parts > 1:
+                    body = (
+                        f"*Part {index}/{total_parts}*\n\n"
+                        f"{part}"
                     )
                 else:
-                    # Keep the answer readable in one WhatsApp message.
-                    # Long answers should be shortened before sending.
-                    app.logger.warning(
-                        "WhatsApp answer exceeds %s characters: %s",
-                        MAX_LENGTH,
-                        len(message)
-                    )
+                    body = part
 
-                    twilio.messages.create(
-                        from_=recipient,
-                        to=sender,
-                        body=message[:MAX_LENGTH]
-                    )
-
-            except Exception:
-                 app.logger.exception(
-                    "Failed to send WhatsApp reply"
+                twilio.messages.create(
+                    from_=recipient,
+                    to=sender,
+                    body=body
                 )
+
+                app.logger.info(
+                    "WhatsApp part %s/%s submitted: %s characters",
+                    index,
+                    total_parts,
+                    len(body)
+                )
+        except Exception:
+            app.logger.exception(
+                "Failed to send WhatsApp reply"
+            )
+
 
 
 
