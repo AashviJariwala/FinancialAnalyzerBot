@@ -1,4 +1,5 @@
 """Persistent Twilio WhatsApp portfolio bot backed by PostgreSQL."""
+from itsdangerous import exc
 import os
 import re
 import uuid
@@ -99,12 +100,35 @@ def register_whatsapp_webhook(app, download_portfolio, load_analyzer):
     _initialize_database()
 
     def send(twilio, sender, recipient, message):
-        try:
-            for start in range(0, len(message), 1500):
-                twilio.messages.create(from_=recipient, to=sender,
-                                       body=message[start:start + 1500])
-        except Exception:
-            app.logger.exception("Failed to send WhatsApp reply")
+            try:
+                MAX_LENGTH = 1600
+                if len(message) <= MAX_LENGTH:
+                    twilio.messages.create(
+                        from_=recipient,
+                        to=sender,
+                        body=message
+                    )
+                else:
+                    # Keep the answer readable in one WhatsApp message.
+                    # Long answers should be shortened before sending.
+                    app.logger.warning(
+                        "WhatsApp answer exceeds %s characters: %s",
+                        MAX_LENGTH,
+                        len(message)
+                    )
+
+                    twilio.messages.create(
+                        from_=recipient,
+                        to=sender,
+                        body=message[:MAX_LENGTH]
+                    )
+
+            except Exception:
+                 app.logger.exception(
+                    "Failed to send WhatsApp reply"
+                )
+
+
 
     def finish(sender, token, client_name, file_path, question, answer, loading):
         """Update only if this worker still owns the task (reset-safe)."""

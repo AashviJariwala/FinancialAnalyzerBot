@@ -9,6 +9,7 @@ import sys
 import datetime
 import uuid
 import threading
+import logging
 from groq import Groq
 from playwright.sync_api import sync_playwright
 
@@ -26,6 +27,14 @@ groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 
 app = Flask(__name__)
+
+# Connect Flask's logger to Gunicorn handlers when running on Render / production
+if __name__ != "__main__":
+    gunicorn_logger = logging.getLogger("gunicorn.error")
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level if gunicorn_logger.level else logging.INFO)
+else:
+    logging.basicConfig(level=logging.INFO)
 
 # Required for Flask sessions
 app.secret_key = os.environ.get("SECRET_KEY", "financial-analyzer-secret-key")
@@ -913,13 +922,11 @@ def chat():
             response.choices[0].message.content
         )
         
-        app.logger.exception(  "Groq finish reason:",
-            response.choices[0].finish_reason)
-        app.logger.exception( "Groq response length:",
-            len(response.choices[0].message.content or ""))
+        app.logger.info(f"Groq finish reason: {response.choices[0].finish_reason}")
+        app.logger.info(f"Groq response length: {len(response.choices[0].message.content or '')}")
 
     except Exception as e:
-
+        app.logger.exception(f"Groq API error: {e}")
         full_response = (
             f"Error contacting GroqCloud ({GROQ_MODEL}): {e}."
         )
