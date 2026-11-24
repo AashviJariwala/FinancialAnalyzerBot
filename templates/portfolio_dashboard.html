@@ -567,6 +567,7 @@
 
                     if (statusData.status === "done") {
                         clearInterval(pollInterval);
+                        if (window.markSessionActive) window.markSessionActive();
                         showStatus("✅ Portfolio loaded successfully! Opening dashboard…", "success");
                         setTimeout(() => {
                             window.location.reload();
@@ -591,14 +592,82 @@
         window.fetchDashboardPortfolio = fetchPortfolio;
         window.showDashboardStatus = showStatus;
 
-        async function resetPortfolio() {
-            if (confirm("Load a different client portfolio?")) {
+        function openChangeClientModal() {
+            const modal = document.getElementById("changeClientModal");
+            if (modal) {
+                modal.classList.remove("hidden");
+                document.body.style.overflow = "hidden";
+            }
+        }
+
+        function closeChangeClientModal() {
+            const modal = document.getElementById("changeClientModal");
+            if (modal) {
+                modal.classList.add("hidden");
+                document.body.style.overflow = "";
+            }
+        }
+
+        async function confirmResetPortfolio() {
+            const btn = document.getElementById("confirmChangeClientBtn");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = "<span>Resetting...</span>";
+            }
+            try {
                 await fetch("/reset", { method: "POST" });
+                window.location.reload();
+            } catch (err) {
+                console.error("Error resetting portfolio:", err);
                 window.location.reload();
             }
         }
 
+        function resetPortfolio() {
+            openChangeClientModal();
+        }
+
+        // Close modal when clicking on overlay background
+        window.addEventListener("click", function (event) {
+            const modal = document.getElementById("changeClientModal");
+            if (event.target === modal) {
+                closeChangeClientModal();
+            }
+        });
+
+        // Close modal with Escape key
+        window.addEventListener("keydown", function (event) {
+            if (event.key === "Escape") {
+                closeChangeClientModal();
+            }
+        });
     </script>
+
+    <!-- CHANGE CLIENT CONFIRMATION POPUP MODAL -->
+    <div id="changeClientModal" class="custom-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="changeClientModalTitle">
+        <div class="custom-modal-card">
+            <button type="button" class="modal-close-btn" onclick="closeChangeClientModal()" aria-label="Close dialog">&times;</button>
+            <div class="modal-icon-badge">🔄</div>
+            <h3 id="changeClientModalTitle" class="modal-title">Change Client Portfolio?</h3>
+            <p class="modal-description">
+                Are you sure you want to load a different client? Your current portfolio view and active session will be reset.
+            </p>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-cancel" onclick="closeChangeClientModal()">
+                    Cancel
+                </button>
+                <button type="button" class="modal-btn modal-btn-confirm" id="confirmChangeClientBtn" onclick="confirmResetPortfolio()">
+                    <span>Yes, Change Client</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- SESSION LIFECYCLE CONTROLLER (Destroys session on server restart or browser close, keeps on refresh) -->
+    <div id="sessionLifecycleConfig"
+         data-server-boot-id="{{ server_boot_id }}"
+         data-portfolio-loaded="{{ 'true' if is_portfolio_loaded else 'false' }}"
+         style="display: none;"></div>
+    <script src="{{ url_for('static', filename='session-lifecycle.js') }}"></script>
 </body>
 
 </html>
