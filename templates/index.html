@@ -15,6 +15,25 @@
 
 <body>
 
+    <!-- TOP NAVIGATION -->
+    <header class="app-nav">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-icon">💼</span>
+                <span class="brand-name">FamilyFolio <span>Advisor AI</span></span>
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('portfolio_dashboard') }}" class="nav-item">
+                    <span class="nav-icon">📊</span> Portfolio Dashboard
+                </a>
+                <a href="{{ url_for('home') }}" class="nav-item active">
+                    <span class="nav-icon">💬</span> Advisor Chat
+                </a>
+            </nav>
+           
+        </div>
+    </header>
+
     <div class="app-container">
 
         <!-- SIDEBAR -->
@@ -25,7 +44,7 @@
 
             <label>👤 Client Full Name</label>
 
-            <input type="text" id="clientName" placeholder="e.g. PRAGNESH SARAIYA">
+            <input type="text" id="clientName" placeholder="e.g. PRAGNESH SARAIYA" value="{{ client_name or '' }}">
 
             <button class="primary-button" onclick="fetchPortfolio()">
 
@@ -37,7 +56,10 @@
 
             <div id="loadedClient" class="loaded-client hidden">
 
-                ✅ Portfolio Loaded
+                <div class="loaded-badge">✅ Portfolio Loaded</div>
+                <a href="{{ url_for('portfolio_dashboard') }}" class="sidebar-dash-btn">
+                    📊 Open Portfolio Dashboard →
+                </a>
 
             </div>
 
@@ -898,6 +920,44 @@
 
         }
 
+    </script>
+
+    <!-- CONFIG CONTAINER (Safe data transfer from Jinja to JS without script syntax errors) -->
+    <div id="pageConfig"
+         data-portfolio-loaded="{{ 'true' if portfolio_loaded else 'false' }}"
+         data-prefill-query="{{ prefill_query or '' }}"
+         style="display: none;"></div>
+
+    <script>
+        // ============================================================
+        // SESSION PERSISTENCE & PREFILLED CHAT QUERY
+        // ============================================================
+        window.addEventListener("DOMContentLoaded", async () => {
+            const configEl = document.getElementById("pageConfig");
+            const isLoaded = configEl && configEl.dataset.portfolioLoaded === "true";
+            const prefillQuery = configEl ? (configEl.dataset.prefillQuery || "") : "";
+
+            // Auto-load portfolio if session already has it loaded
+            if (isLoaded) {
+                const loadedClientBox = document.getElementById("loadedClient");
+                if (loadedClientBox) loadedClientBox.classList.remove("hidden");
+                await loadPortfolio();
+            }
+
+            // Prefill question if user came from Scheme Details "Ask the bot"
+            const urlParams = new URLSearchParams(window.location.search);
+            const q = prefillQuery || urlParams.get("q") || urlParams.get("prefill");
+            if (q) {
+                const chatInput = document.getElementById("chatInput");
+                if (chatInput) {
+                    chatInput.value = q;
+                    chatInput.focus();
+                    setTimeout(() => {
+                        chatInput.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }, 500);
+                }
+            }
+        });
     </script>
 
 </body>

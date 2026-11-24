@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ (details.scheme_name if details else 'Scheme') }} - Scheme Details</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <!-- TOP NAVIGATION -->
+    <header class="app-nav">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-icon">💼</span>
+                <span class="brand-name">FamilyFolio <span>Advisor AI</span></span>
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('portfolio_dashboard') }}" class="nav-item">
+                    <span class="nav-icon">📊</span> Portfolio Dashboard
+                </a>
+                <a href="{{ url_for('home') }}" class="nav-item">
+                    <span class="nav-icon">💬</span> Advisor Chat
+                </a>
+            </nav>
+            <div class="nav-client-meta">
+                <span class="nav-client-pill">👤 {{ client_name }}</span>
+                <a href="{{ url_for('portfolio_dashboard') }}" class="nav-back-link">
+                    ← Back to Holdings
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-container">
+        <main class="scheme-details-content">
+            <!-- BREADCRUMB & BACK -->
+            <div class="breadcrumb-row">
+                <a href="{{ url_for('portfolio_dashboard') }}" class="back-link">
+                    ← Back to Portfolio Dashboard
+                </a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">{{ details.scheme_name }}</span>
+            </div>
+
+            <!-- SCHEME HERO HEADER -->
+            <section class="scheme-hero-card">
+                <div class="scheme-hero-left">
+                    <div class="scheme-hero-badge">
+                        <span class="amc-pill">🏢 {{ details.scheme_info.fund_house }}</span>
+                        <span class="cat-pill">📂 {{ details.scheme_info.category }}</span>
+                    </div>
+                    <h1 class="scheme-hero-title">{{ details.scheme_name }}</h1>
+                    <div class="scheme-hero-meta">
+                        <span>Portfolio Valuation Date: <b>{{ valuation_date }}</b></span>
+                        {% if details.scheme_info.folio_no %}
+                        <span>• Folio: <b>{{ details.scheme_info.folio_no }}</b></span>
+                        {% endif %}
+                        {% if details.scheme_info.nominee %}
+                        <span>• Nominee: <b>{{ details.scheme_info.nominee }}</b></span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="scheme-hero-right">
+                    <!-- ASK THE BOT ABOUT THIS SCHEME BUTTON -->
+                    <a href="{{ url_for('home') }}?q={{ details.chat_prefill | urlencode }}" class="ask-bot-action-btn">
+                        <span class="btn-icon">🤖</span>
+                        <div class="btn-text-wrap">
+                            <span class="btn-primary-text">Ask the Bot About This Scheme</span>
+                            <span class="btn-sub-text">“How has my investment performed?”</span>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- 1. HOLDING SUMMARY -->
+            <section class="section-block">
+                <h2 class="section-title">💼 Holding Summary</h2>
+                <div class="holding-summary-grid">
+                    <div class="detail-kpi-card">
+                        <div class="detail-kpi-label">Invested Amount</div>
+                        <div class="detail-kpi-val">₹{{ '{:,.2f}'.format(details.holding_summary.invested_amount) }}</div>
+                        <div class="detail-kpi-sub">Total Capital Committed</div>
+                    </div>
+
+                    <div class="detail-kpi-card">
+                        <div class="detail-kpi-label">Current Value</div>
+                        <div class="detail-kpi-val highlight-gold">₹{{ '{:,.2f}'.format(details.holding_summary.current_value) }}</div>
+                        <div class="detail-kpi-sub">Market Valuation</div>
+                    </div>
+
+                    <div class="detail-kpi-card">
+                        <div class="detail-kpi-label">Gain / Loss</div>
+                        <div class="detail-kpi-val {{ 'val-positive' if details.holding_summary.gain_loss >= 0 else 'val-negative' }}">
+                            {{ '+' if details.holding_summary.gain_loss >= 0 else '' }}₹{{ '{:,.2f}'.format(details.holding_summary.gain_loss) }}
+                        </div>
+                        <div class="detail-kpi-sub {{ 'delta-up' if details.holding_summary.gain_loss >= 0 else 'delta-down' }}">
+                            {{ '▲' if details.holding_summary.gain_loss >= 0 else '▼' }}
+                            {{ '{:+.2f}'.format(details.holding_summary.gain_loss_pct) }}% Absolute
+                        </div>
+                    </div>
+
+                    <div class="detail-kpi-card">
+                        <div class="detail-kpi-label">% of Portfolio</div>
+                        <div class="detail-kpi-val highlight-indigo">{{ '{:.2f}'.format(details.holding_summary.portfolio_weight) }}%</div>
+                        <div class="detail-kpi-sub">
+                            Annualised XIRR: <b>{{ '{:.2f}'.format(details.holding_summary.xirr) }}%</b>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. SCHEME INFORMATION -->
+            <section class="section-block">
+                <h2 class="section-title">ℹ️ Scheme Information</h2>
+                <div class="scheme-info-table-card">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Fund House (AMC)</span>
+                            <span class="info-val font-semibold">{{ details.scheme_info.fund_house }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Category / Sub-Sector</span>
+                            <span class="info-val"><span class="category-badge">{{ details.scheme_info.category }}</span></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Units Held</span>
+                            <span class="info-val font-semibold">
+                                {{ '{:,.3f}'.format(details.scheme_info.units_held) if details.scheme_info.units_held else 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Latest NAV</span>
+                            <span class="info-val highlight-gold font-semibold">
+                                {{ '₹{:,.2f}'.format(details.scheme_info.latest_nav) if details.scheme_info.latest_nav else 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Average Purchase NAV</span>
+                            <span class="info-val">
+                                {{ '₹{:,.2f}'.format(details.scheme_info.avg_nav) if details.scheme_info.avg_nav else 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Folio Number</span>
+                            <span class="info-val">{{ details.scheme_info.folio_no or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Nominee Registered</span>
+                            <span class="info-val">{{ details.scheme_info.nominee or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Annualised XIRR</span>
+                            <span class="info-val val-positive font-semibold">{{ '{:.2f}'.format(details.holding_summary.xirr) }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. INVESTMENT AMOUNT VS CURRENT VALUE LINE CHART -->
+            <section class="section-block">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2 class="chart-title">📊 Invested Amount vs. Current Value</h2>
+                            <p class="chart-subtitle">
+                                Trajectory of total invested capital vs. portfolio market value over time.
+                            </p>
+                        </div>
+                        <div class="header-stat-group">
+                            <span class="meta-pill pill-blue">Invested: <b>₹{{ '{:,.2f}'.format(details.holding_summary.invested_amount) }}</b></span>
+                            <span class="meta-pill pill-positive">Current Value: <b>₹{{ '{:,.2f}'.format(details.holding_summary.current_value) }}</b></span>
+                        </div>
+                    </div>
+                    <div class="chart-container nav-chart-wrap">
+                        <canvas id="growthLineChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. NAV HISTORY CHART (SCHEME NAV HISTORY) -->
+            <section class="section-block">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2 class="chart-title">📈 Scheme NAV History</h2>
+                            <p class="chart-subtitle">
+                                Historical Net Asset Value (NAV) per unit for this scheme.
+                                <i class="distinguish-note">Distinguishable from personal cash flows & timing.</i>
+                            </p>
+                        </div>
+                        {% if details.scheme_info.latest_nav %}
+                        <div class="latest-nav-badge">
+                            Latest NAV: <b>₹{{ '{:,.2f}'.format(details.scheme_info.latest_nav) }}</b>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="chart-container nav-chart-wrap">
+                        <canvas id="navHistoryChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. TRANSACTION HISTORY -->
+            <section class="section-block">
+                <div class="holdings-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2 class="chart-title">📜 Transaction History</h2>
+                            <p class="chart-subtitle">
+                                Recorded transaction entries, purchase dates, installments, and NAV rates.
+                            </p>
+                        </div>
+                        <span class="meta-pill">Total Transactions: <b>{{ details.transactions|length }}</b></span>
+                    </div>
+
+                    {% if details.transactions and details.transactions|length > 0 %}
+                    <div class="table-responsive">
+                        <table class="holdings-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Transaction Type</th>
+                                    <th>Amount (₹)</th>
+                                    <th>NAV Rate (₹)</th>
+                                    <th>Units Allotted</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tx in details.transactions %}
+                                <tr>
+                                    <td>{{ tx.date }}</td>
+                                    <td>
+                                        <span class="tx-badge {{ 'tx-fresh' if tx.type == 'FRESH' else ('tx-sip' if 'SIP' in tx.type else 'tx-add') }}">
+                                            {{ tx.type }}
+                                        </span>
+                                    </td>
+                                    <td class="td-number font-semibold">₹{{ '{:,.2f}'.format(tx.amount) }}</td>
+                                    <td class="td-number">₹{{ '{:,.2f}'.format(tx.nav) }}</td>
+                                    <td class="td-number">{{ '{:,.3f}'.format(tx.units) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="no-tx-box">
+                        <p>No separate transaction records found in the current valuation report.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- DATA CONTAINERS FOR CHARTS (Safe JSON embedding) -->
+    <script id="growthTimelineData" type="application/json">
+    {{ (details.growth_timeline if (details and details.growth_timeline) else []) | tojson }}
+    </script>
+
+    <script id="schemeNavData" type="application/json">
+    {{ (details.nav_history if (details and details.nav_history) else []) | tojson }}
+    </script>
+
+    <!-- SCRIPTS -->
+    <script>
+        // ============================================================
+        // 1. INVESTED AMOUNT VS CURRENT VALUE LINE CHART (CHART.JS)
+        // ============================================================
+        const growthDataScript = document.getElementById("growthTimelineData");
+        const growthData = growthDataScript ? JSON.parse(growthDataScript.textContent || "[]") : [];
+
+        const growthCtx = document.getElementById('growthLineChart');
+        if (growthCtx && growthData && growthData.length > 0) {
+            const labels = growthData.map(d => d.date);
+            const investedValues = growthData.map(d => d.invested);
+            const currentValues = growthData.map(d => d.value);
+
+            new Chart(growthCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Invested Amount (₹)',
+                            data: investedValues,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#3b82f6',
+                            pointBorderColor: '#0f172a',
+                            pointBorderWidth: 1.5,
+                            pointRadius: growthData.length > 25 ? 2.5 : 4.5,
+                            pointHoverRadius: 6,
+                            tension: 0.2,
+                            fill: false
+                        },
+                        {
+                            label: 'Current Value (₹)',
+                            data: currentValues,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#0f172a',
+                            pointBorderWidth: 1.5,
+                            pointRadius: growthData.length > 25 ? 2.5 : 4.5,
+                            pointHoverRadius: 6,
+                            tension: 0.25,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'Outfit', size: 11 },
+                                maxRotation: 45
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#cbd5e1',
+                                callback: val => '₹' + Number(val).toLocaleString('en-IN')
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#e2e8f0',
+                                font: { family: 'Outfit', size: 12, weight: '600' },
+                                boxWidth: 14,
+                                boxHeight: 14,
+                                padding: 16
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` ${ctx.dataset.label}: ₹${Number(ctx.raw).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ============================================================
+        // 2. SCHEME NAV HISTORY CHART (CHART.JS)
+        // ============================================================
+        const navDataScript = document.getElementById("schemeNavData");
+        const navData = navDataScript ? JSON.parse(navDataScript.textContent || "[]") : [];
+
+        const navCtx = document.getElementById('navHistoryChart');
+        if (navCtx && navData && navData.length > 0) {
+            const labels = navData.map(d => d.date);
+            const values = navData.map(d => d.nav);
+
+            new Chart(navCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Scheme NAV (₹)',
+                        data: values,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#0f172a',
+                        pointBorderWidth: 1.5,
+                        pointRadius: navData.length > 20 ? 2.5 : 4.5,
+                        pointHoverRadius: 6,
+                        tension: 0.25,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'Outfit', size: 11 },
+                                maxRotation: 45
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#cbd5e1',
+                                callback: val => '₹' + Number(val).toLocaleString('en-IN')
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` Scheme NAV: ₹${Number(ctx.raw).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
