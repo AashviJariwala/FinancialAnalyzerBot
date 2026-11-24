@@ -40,6 +40,41 @@ else:
 # Required for Flask sessions
 app.secret_key = os.environ.get("SECRET_KEY", "financial-analyzer-secret-key")
 
+# ============================================================
+# SESSION LIFECYCLE MANAGEMENT
+# Destroy session on server restart or browser close (not on refresh)
+# ============================================================
+SERVER_BOOT_ID = str(uuid.uuid4())
+
+# Session cookies expire when the browser is closed
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+
+@app.before_request
+def enforce_server_boot_lifecycle():
+    # Bypass static files so asset requests don't modify session
+    if request.path.startswith("/static"):
+        return
+
+    # Check if the session was created on an older server instance (server restart)
+    client_boot_id = session.get("server_boot_id")
+    if client_boot_id is not None and client_boot_id != SERVER_BOOT_ID:
+        # Server was restarted! Destroy all previous session data
+        session.clear()
+
+    # Store the current server boot ID
+    session["server_boot_id"] = SERVER_BOOT_ID
+
+
+@app.context_processor
+def inject_session_lifecycle():
+    return {
+        "server_boot_id": SERVER_BOOT_ID,
+        "is_portfolio_loaded": bool(session.get("file_path"))
+    }
+
 
 # ============================================================
 # GLOBAL ERROR HANDLERS
