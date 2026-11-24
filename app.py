@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, session
+import utils.session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from pathlib import Path
 from financialAnalyzer import FinancialAnalyzer
 from dotenv import load_dotenv
@@ -8,6 +9,8 @@ import sys
 import datetime
 import uuid
 import threading
+import logging
+import urllib.parse
 from groq import Groq
 from playwright.sync_api import sync_playwright
 
@@ -25,6 +28,14 @@ groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 
 app = Flask(__name__)
+
+# Connect Flask's logger to Gunicorn handlers when running on Render / production
+if __name__ != "__main__":
+    gunicorn_logger = logging.getLogger("gunicorn.error")
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level if gunicorn_logger.level else logging.INFO)
+else:
+    logging.basicConfig(level=logging.INFO)
 
 # Required for Flask sessions
 app.secret_key = os.environ.get("SECRET_KEY", "financial-analyzer-secret-key")
@@ -372,17 +383,106 @@ def load_analyzer(file_path):
 
 
 # ============================================================
-# HOME PAGE
+# ROOT REDIRECT (PORTFOLIO DASHBOARD FIRST ON STARTUP)
 # ============================================================
 
 @app.route("/")
+def root():
+    """Open portfolio dashboard first on startup."""
+    return redirect(url_for("portfolio_dashboard"))
+
+
+# ============================================================
+# ADVISOR CHATBOT PAGE
+# ============================================================
+
+@app.route("/bot")
+@app.route("/advisor")
 def home():
+    file_path = session.get("file_path")
+    client_name = session.get("client_name")
+    is_loaded = bool(file_path and Path(file_path).is_file())
 
     return render_template(
         "index.html",
-        portfolio=None,
-        holders=[],
-        client_name=None
+        portfolio_loaded=is_loaded,
+        client_name=client_name or "",
+        prefill_query=request.args.get("q", "").strip()
+    )
+
+
+# ============================================================
+# PORTFOLIO DASHBOARD PAGE
+# ============================================================
+
+@app.route("/portfolio-dashboard")
+@app.route("/portfolioDashboard")
+@app.route("/dashboard")
+def portfolio_dashboard():
+    file_path = session.get("file_path")
+    client_name = session.get("client_name")
+
+    if not file_path or not Path(file_path).is_file():
+        return render_template(
+            "portfolioDashboard.html",
+            portfolio_loaded=False,
+            client_name=client_name or "",
+            dashboard_data=None
+        )
+
+    analyzer = load_analyzer(file_path)
+    if analyzer is None:
+        return render_template(
+            "portfolioDashboard.html",
+            portfolio_loaded=False,
+            client_name=client_name or "",
+            dashboard_data=None,
+            error="Could not load portfolio data."
+        )
+
+    dashboard_data = analyzer.get_dashboard_data()
+    return render_template(
+        "portfolioDashboard.html",
+        portfolio_loaded=True,
+        client_name=dashboard_data["client_name"],
+        dashboard_data=dashboard_data
+    )
+
+
+# ============================================================
+# SCHEME DETAILS PAGE
+# ============================================================
+
+@app.route("/scheme/<path:scheme_name>")
+@app.route("/scheme-details")
+def scheme_details(scheme_name=None):
+    if not scheme_name:
+        scheme_name = request.args.get("name", "").strip()
+
+    if not scheme_name:
+        return redirect(url_for("portfolio_dashboard"))
+
+    scheme_name = urllib.parse.unquote(scheme_name)
+
+    file_path = session.get("file_path")
+    client_name = session.get("client_name")
+
+    if not file_path or not Path(file_path).is_file():
+        return redirect(url_for("portfolio_dashboard"))
+
+    analyzer = load_analyzer(file_path)
+    if analyzer is None:
+        return redirect(url_for("portfolio_dashboard"))
+
+    details = analyzer.get_scheme_details(scheme_name)
+    if not details:
+        return redirect(url_for("portfolio_dashboard"))
+
+    return render_template(
+        "scheme_details.html",
+        client_name=details["client_name"],
+        valuation_date=details["valuation_date"],
+        details=details
     )
 
 
@@ -904,16 +1004,19 @@ def chat():
 
             ],
 
-            max_tokens=512,
+            max_tokens=2048,
 
         )
 
         full_response = (
             response.choices[0].message.content
         )
+        
+        app.logger.info(f"Groq finish reason: {response.choices[0].finish_reason}")
+        app.logger.info(f"Groq response length: {len(response.choices[0].message.content or '')}")
 
     except Exception as e:
-
+        app.logger.exception(f"Groq API error: {e}")
         full_response = (
             f"Error contacting GroqCloud ({GROQ_MODEL}): {e}."
         )
@@ -974,15 +1077,29 @@ def reset():
     })
 
 
-from whatsappwebhook import register_whatsapp_webhook
-
-register_whatsapp_webhook(app)
+try:
+    from whatsappWebhook import register_whatsapp_webhook
+    register_whatsapp_webhook(app, run_server_download, load_analyzer)
+except Exception as e:
+    app.logger.warning(f"WhatsApp webhook not registered (PostgreSQL/libpq unavailable): {e}")
 
 # ============================================================
 # RUN
 # ============================================================
 
 if __name__ == "__main__":
+
+    # Automatically open Portfolio Dashboard in browser on startup
+    import webbrowser
+    import threading
+
+    def open_browser():
+        try:
+            webbrowser.open_new("http://127.0.0.1:5000/dashboard")
+        except Exception:
+            pass
+
+    threading.Timer(1.25, open_browser).start()
 
     # NOTE: use_reloader=False is required because Playwright's
     # sync_playwright is incompatible with Werkzeug's auto-reloader

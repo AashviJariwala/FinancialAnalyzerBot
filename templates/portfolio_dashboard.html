@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ client_name if client_name else 'Portfolio Dashboard' }} - FamilyFolio Advisor AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <!-- TOP NAVIGATION -->
+    <header class="app-nav">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-icon">💼</span>
+                <span class="brand-name">FamilyFolio <span>Advisor AI</span></span>
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('portfolio_dashboard') }}" class="nav-item active">
+                    <span class="nav-icon">📊</span> Portfolio Dashboard
+                </a>
+                <a href="{{ url_for('home') }}" class="nav-item">
+                    <span class="nav-icon">💬</span> Advisor Chat
+                </a>
+            </nav>
+            {% if portfolio_loaded and dashboard_data %}
+            <div class="nav-client-meta">
+                <span class="nav-client-pill">👤 {{ dashboard_data.client_name }}</span>
+                <button class="nav-reset-btn" onclick="resetPortfolio()" title="Switch client">
+                    🔄 Change Client
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="page-container">
+        {% if not portfolio_loaded %}
+        <!-- EMPTY / UNLOADED STATE -->
+        <main class="dashboard-hero-empty">
+            <div class="empty-card">
+                <div class="empty-icon">📊</div>
+                <h1>Client Portfolio Dashboard</h1>
+                <p class="subtitle">
+                    Enter the client name below to load valuation reports, asset allocation charts, and holdings
+                    breakdown.
+                </p>
+
+                <div class="client-fetch-box">
+                    <label>👤 Client Full Name</label>
+                    <div class="input-action-row">
+                        <input type="text" id="clientName" placeholder="e.g. PRAGNESH SARAIYA or DIPAKBHAI"
+                            value="{{ client_name or '' }}" onkeydown="if(event.key === 'Enter') fetchPortfolio()">
+                        <button class="primary-button" onclick="fetchPortfolio()">
+                            ⚡ Fetch & Load Portfolio
+                        </button>
+                    </div>
+                    <div id="fetchStatus"></div>
+                </div>
+
+                <div class="feature-badges">
+                    <span>📈 Holdings Breakdown</span>
+                    <span>🍩 Asset Allocation Chart</span>
+                    <span>⚖️ Investment Comparison</span>
+                    <span>💬 Direct AI Chat Integration</span>
+                </div>
+            </div>
+        </main>
+
+        {% else %}
+        <!-- LOADED DASHBOARD CONTENT -->
+        <main class="dashboard-content">
+            <!-- 1. CLIENT HEADER -->
+            <section class="client-header-card">
+                <div class="client-info-left">
+                    <div class="client-avatar">👤</div>
+                    <div>
+                        <div class="header-pretitle">PORTFOLIO VALUATION REPORT</div>
+                        <h1 class="client-title">{{ dashboard_data.client_name }}</h1>
+                        <div class="valuation-meta">
+                            <span class="meta-pill">📅 As on: <b>{{ dashboard_data.valuation_date }}</b></span>
+                            <span class="meta-pill">📂 Holdings: <b>{{ dashboard_data.schemes|length }}
+                                    Schemes</b></span>
+                            {% if dashboard_data.summary.total_sip > 0 %}
+                            <span class="meta-pill sip-pill">💳 Monthly SIP: <b>₹{{
+                                    '{:,.2f}'.format(dashboard_data.summary.total_sip) }}</b></span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="client-actions-right">
+                    <a href="{{ url_for('home') }}" class="chat-shortcut-btn">
+                        💬 Ask Advisor Chat
+                    </a>
+                    <button class="change-client-btn" onclick="resetPortfolio()">
+                        🔄 Change Client
+                    </button>
+                </div>
+            </section>
+
+            <!-- 2. SUMMARY CARDS -->
+            <section class="summary-cards-grid">
+                <div class="summary-card">
+                    <div class="card-label">Total Invested</div>
+                    <div class="card-value">₹{{ '{:,.2f}'.format(dashboard_data.summary.total_invested) }}</div>
+                    <div class="card-delta muted">Principal Capital</div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="card-label">Current Value</div>
+                    <div class="card-value highlight-gold">₹{{ '{:,.2f}'.format(dashboard_data.summary.current_value) }}
+                    </div>
+                    <div class="card-delta muted">Current Portfolio Worth</div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="card-label">Total Gain / Loss</div>
+                    <div
+                        class="card-value {{ 'val-positive' if dashboard_data.summary.total_gain_loss >= 0 else 'val-negative' }}">
+                        {{ '+' if dashboard_data.summary.total_gain_loss >= 0 else '' }}₹{{
+                        '{:,.2f}'.format(dashboard_data.summary.total_gain_loss) }}
+                    </div>
+                    <div
+                        class="card-delta {{ 'delta-up' if dashboard_data.summary.total_gain_loss >= 0 else 'delta-down' }}">
+                        {{ '▲' if dashboard_data.summary.total_gain_loss >= 0 else '▼' }}
+                        {{ '{:+.2f}'.format(dashboard_data.summary.gain_loss_percentage) }}% Overall
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="card-label">Absolute Return (ABS)</div>
+                    <div
+                        class="card-value {{ 'val-positive' if dashboard_data.summary.abs_return >= 0 else 'val-negative' }}">
+                        {{ '{:+.2f}'.format(dashboard_data.summary.abs_return) }}%
+                    </div>
+                    <div class="card-delta delta-up">
+                        ⚡ Annualised XIRR: <b>{{ '{:.2f}'.format(dashboard_data.summary.xirr) }}%</b>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. CHARTS GRID -->
+            <section class="charts-two-col">
+                <!-- ALLOCATION DONUT CHART -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2 class="chart-title">🍩 Portfolio Allocation</h2>
+                            <p class="chart-subtitle">Each scheme’s share of total portfolio value</p>
+                        </div>
+                    </div>
+                    <div class="chart-container donut-wrap">
+                        <canvas id="allocationChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- INVESTMENT COMPARISON HORIZONTAL BAR CHART -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2 class="chart-title">📊 Investment Comparison</h2>
+                            <p class="chart-subtitle">Invested amount vs. current value per scheme</p>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. HOLDINGS TABLE -->
+            <section class="holdings-section">
+                <div class="holdings-card">
+                    <div class="holdings-header">
+                        <div>
+                            <h2 class="holdings-title">📋 Scheme Holdings</h2>
+                            <p class="holdings-subtitle">
+                                Click any scheme to view holding details, transaction history, and NAV chart.
+                            </p>
+                        </div>
+
+                        <!-- SEARCH & QUICK SORT CONTROLS -->
+                        <div class="holdings-toolbar">
+                            <div class="search-box">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" id="schemeSearch" placeholder="Search by scheme or category..."
+                                    oninput="filterTable()">
+                            </div>
+
+                            <div class="sort-pills">
+                                <span class="sort-label">Sort:</span>
+                                <button class="sort-pill active" onclick="applySort('current_value')">
+                                    💎 Largest Holdings
+                                </button>
+                                <button class="sort-pill" onclick="applySort('return_pct')">
+                                    🚀 Top Return %
+                                </button>
+                                <button class="sort-pill" onclick="applySort('portfolio_weight')">
+                                    ⚖️ Weight
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="holdings-table" id="holdingsTable">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortTable(0, 'string')">Scheme Name <span class="th-sort">↕</span></th>
+                                    <th onclick="sortTable(1, 'string')">Category <span class="th-sort">↕</span></th>
+                                    <th onclick="sortTable(2, 'number')">Invested Amount <span class="th-sort">↕</span>
+                                    </th>
+                                    <th onclick="sortTable(3, 'number')">Current Value <span class="th-sort">↕</span>
+                                    </th>
+                                    <th onclick="sortTable(4, 'number')">Gain / Loss <span class="th-sort">↕</span></th>
+                                    <th onclick="sortTable(5, 'number')">Return % <span class="th-sort">↕</span></th>
+                                    <th onclick="sortTable(6, 'number')">Portfolio Weight <span class="th-sort">↕</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in dashboard_data.schemes %}
+                                <tr data-scheme="{{ s.scheme_name | lower }}" data-category="{{ s.category | lower }}">
+                                    <td class="td-scheme">
+                                        <a href="{{ url_for('scheme_details', scheme_name=s.url_name) }}"
+                                            class="scheme-link" title="View {{ s.scheme_name }} details">
+                                            <span class="scheme-name-text">{{ s.scheme_name }}</span>
+                                            <span class="fund-house-sub">{{ s.fund_house }}</span>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="category-badge">{{ s.category }}</span>
+                                    </td>
+                                    <td class="td-number" data-value="{{ s.invested_amount }}">
+                                        ₹{{ '{:,.2f}'.format(s.invested_amount) }}
+                                    </td>
+                                    <td class="td-number td-bold" data-value="{{ s.current_value }}">
+                                        ₹{{ '{:,.2f}'.format(s.current_value) }}
+                                    </td>
+                                    <td class="td-number {{ 'val-positive' if s.gain_loss >= 0 else 'val-negative' }}"
+                                        data-value="{{ s.gain_loss }}">
+                                        {{ '+' if s.gain_loss >= 0 else '' }}₹{{ '{:,.2f}'.format(s.gain_loss) }}
+                                    </td>
+                                    <td class="td-number" data-value="{{ s.return_pct }}">
+                                        <span
+                                            class="return-pill {{ 'pill-positive' if s.return_pct >= 0 else 'pill-negative' }}">
+                                            {{ '{:+.2f}'.format(s.return_pct) }}%
+                                        </span>
+                                    </td>
+                                    <td class="td-number td-weight" data-value="{{ s.portfolio_weight or 0 }}">
+                                        <div class="weight-track">
+                                            <div class="weight-fill" data-weight="{{ s.portfolio_weight or 0 }}"></div>
+                                            <span class="weight-label">{{ '{:.2f}'.format(s.portfolio_weight or 0)
+                                                }}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+        {% endif %}
+    </div>
+
+    <!-- DATA CONTAINER FOR CHARTS (Safe JSON embedding) -->
+    <script id="dashboardChartData" type="application/json">
+    {{ (dashboard_data.chart_data if (dashboard_data and dashboard_data.chart_data) else {}) | tojson }}
+    </script>
+
+    <!-- SCRIPTS -->
+    <script>
+        // Set portfolio weight progress bars
+        document.querySelectorAll(".weight-fill").forEach(el => {
+            const w = parseFloat(el.getAttribute("data-weight")) || 0;
+            el.style.width = Math.min(Math.max(w * 2.5, 4), 100) + "%";
+        });
+
+        // ============================================================
+        // CHART RENDERING (CHART.JS)
+        // ============================================================
+        const chartDataEl = document.getElementById("dashboardChartData");
+        const chartData = chartDataEl ? JSON.parse(chartDataEl.textContent || "{}") : null;
+
+        if (chartData && chartData.allocation && chartData.allocation.labels && chartData.allocation.labels.length > 0) {
+            // Modern color palette
+            const palette = [
+                '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6',
+                '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
+                '#a855f7', '#eab308', '#0ea5e9', '#d946ef', '#64748b'
+            ];
+
+            // 1. ALLOCATION DONUT CHART
+            const allocCtx = document.getElementById('allocationChart');
+            if (allocCtx) {
+                new Chart(allocCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: chartData.allocation.labels,
+                        datasets: [{
+                            data: chartData.allocation.values,
+                            backgroundColor: palette.slice(0, chartData.allocation.labels.length),
+                            borderColor: '#0f172a',
+                            borderWidth: 2,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: '#cbd5e1',
+                                    font: { family: 'Outfit', size: 11 },
+                                    boxWidth: 12,
+                                    padding: 12
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        const val = ctx.raw || 0;
+                                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                        const pct = total > 0 ? ((val / total) * 100).toFixed(2) : 0;
+                                        return ` ₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (${pct}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '62%'
+                    }
+                });
+            }
+
+            // 2. INVESTMENT COMPARISON HORIZONTAL BAR CHART
+            const compCtx = document.getElementById('comparisonChart');
+            if (compCtx) {
+                // Trim long labels for horizontal chart clarity
+                const shortLabels = chartData.comparison.labels.map(name => {
+                    return name.length > 25 ? name.substring(0, 23) + '…' : name;
+                });
+
+                new Chart(compCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: shortLabels,
+                        datasets: [
+                            {
+                                label: 'Invested Amount',
+                                data: chartData.comparison.invested,
+                                backgroundColor: 'rgba(99, 102, 241, 0.75)',
+                                borderColor: '#818cf8',
+                                borderWidth: 1,
+                                borderRadius: 6
+                            },
+                            {
+                                label: 'Current Value',
+                                data: chartData.comparison.current,
+                                backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                                borderColor: '#34d399',
+                                borderWidth: 1,
+                                borderRadius: 6
+                            }
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#94a3b8',
+                                    callback: val => '₹' + (val >= 100000 ? (val / 100000).toFixed(1) + 'L' : val.toLocaleString('en-IN'))
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#e2e8f0',
+                                    font: { family: 'Outfit', size: 11 }
+                                },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#cbd5e1',
+                                    font: { family: 'Outfit', size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: items => chartData.comparison.labels[items[0].dataIndex],
+                                    label: ctx => ` ${ctx.dataset.label}: ₹${Number(ctx.raw).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ============================================================
+            // HOLDINGS TABLE SORTING & FILTERING
+            // ============================================================
+            let currentSortCol = 3; // Default: Current Value
+            let currentSortAsc = false;
+
+            function sortTable(colIndex, type) {
+                const table = document.getElementById("holdingsTable");
+                const tbody = table.querySelector("tbody");
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+
+                if (currentSortCol === colIndex) {
+                    currentSortAsc = !currentSortAsc;
+                } else {
+                    currentSortCol = colIndex;
+                    currentSortAsc = (type === 'string'); // asc for strings, desc for numbers by default
+                }
+
+                rows.sort((a, b) => {
+                    let cellA = a.children[colIndex];
+                    let cellB = b.children[colIndex];
+
+                    let valA = cellA.getAttribute("data-value") !== null ? cellA.getAttribute("data-value") : cellA.innerText.trim();
+                    let valB = cellB.getAttribute("data-value") !== null ? cellB.getAttribute("data-value") : cellB.innerText.trim();
+
+                    if (type === 'number') {
+                        valA = parseFloat(valA) || 0;
+                        valB = parseFloat(valB) || 0;
+                        return currentSortAsc ? (valA - valB) : (valB - valA);
+                    } else {
+                        return currentSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    }
+                });
+
+                rows.forEach(r => tbody.appendChild(r));
+                updateHeaderIcons(colIndex, currentSortAsc);
+            }
+
+            function updateHeaderIcons(activeCol, isAsc) {
+                const headers = document.querySelectorAll("#holdingsTable thead th");
+                headers.forEach((th, idx) => {
+                    const icon = th.querySelector(".th-sort");
+                    if (idx === activeCol) {
+                        icon.innerText = isAsc ? "▲" : "▼";
+                        th.classList.add("th-active");
+                    } else {
+                        icon.innerText = "↕";
+                        th.classList.remove("th-active");
+                    }
+                });
+            }
+
+            function applySort(metric) {
+                const pillMap = {
+                    'current_value': 3,
+                    'return_pct': 5,
+                    'portfolio_weight': 6
+                };
+                const colIndex = pillMap[metric] || 3;
+                currentSortCol = colIndex;
+                currentSortAsc = false; // highest first
+                sortTable(colIndex, 'number');
+
+                document.querySelectorAll(".sort-pill").forEach(btn => {
+                    btn.classList.toggle("active", btn.getAttribute("onclick").includes(metric));
+                });
+            }
+
+            function filterTable() {
+                const query = document.getElementById("schemeSearch").value.toLowerCase().trim();
+                const rows = document.querySelectorAll("#holdingsTable tbody tr");
+
+                rows.forEach(r => {
+                    const sName = r.getAttribute("data-scheme") || "";
+                    const sCat = r.getAttribute("data-category") || "";
+                    if (sName.includes(query) || sCat.includes(query)) {
+                        r.style.display = "";
+                    } else {
+                        r.style.display = "none";
+                    }
+                });
+            }
+        } // end if (chartData)
+
+        // ============================================================
+        // CLIENT FETCH / RESET (Matches Advisor Chat in index.html)
+        // ============================================================
+        async function fetchPortfolio() {
+            const inputEl = document.getElementById("clientName") || document.getElementById("clientNameInput");
+            if (!inputEl) return;
+            const clientName = inputEl.value.trim();
+
+            if (!clientName) {
+                showStatus("Please enter client name.", "error");
+                return;
+            }
+
+            showStatus("🚀 Starting portfolio fetch… please wait.", "info");
+
+            const bodyParams = new URLSearchParams();
+            bodyParams.append("client_name", clientName);
+
+            let job_id = null;
+
+            // Step 1: Start the background job
+            try {
+                const startRes = await fetch("/start-fetch", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "application/json"
+                    },
+                    body: bodyParams
+                });
+
+                const contentType = startRes.headers.get("content-type") || "";
+                if (!contentType.includes("application/json")) {
+                    showStatus("❌ Server returned non-JSON response (" + startRes.status + "). Please check if backend is running.", "error");
+                    return;
+                }
+
+                const startData = await startRes.json();
+                if (!startData.success) {
+                    showStatus("❌ " + startData.error, "error");
+                    return;
+                }
+
+                job_id = startData.job_id;
+            } catch (err) {
+                showStatus("❌ Failed to start fetch: " + err.message, "error");
+                return;
+            }
+
+            // Step 2: Poll /job-status/<job_id> every 2 seconds
+            let elapsed = 0;
+            const pollInterval = setInterval(async () => {
+                elapsed += 2;
+                showStatus(`⏳ Logging in & fetching data… (${elapsed}s elapsed)`, "info");
+
+                try {
+                    const statusRes = await fetch(`/job-status/${job_id}`, {
+                        headers: { "Accept": "application/json" }
+                    });
+
+                    const contentType = statusRes.headers.get("content-type") || "";
+                    if (!contentType.includes("application/json")) {
+                        clearInterval(pollInterval);
+                        showStatus("❌ Polling error: Server returned non-JSON response (" + statusRes.status + ").", "error");
+                        return;
+                    }
+
+                    const statusData = await statusRes.json();
+                    if (!statusData.success) {
+                        clearInterval(pollInterval);
+                        showStatus("❌ " + statusData.error, "error");
+                        return;
+                    }
+
+                    if (statusData.status === "done") {
+                        clearInterval(pollInterval);
+                        showStatus("✅ Portfolio loaded successfully! Opening dashboard…", "success");
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                    }
+                } catch (err) {
+                    clearInterval(pollInterval);
+                    showStatus("❌ " + err.message, "error");
+                }
+            }, 2000);
+        }
+
+        function showStatus(message, type) {
+            const box = document.getElementById("fetchStatus");
+            if (box) {
+                box.innerText = message;
+                box.className = "status " + type;
+            }
+        }
+
+        // Backwards compatibility aliases
+        window.fetchDashboardPortfolio = fetchPortfolio;
+        window.showDashboardStatus = showStatus;
+
+        async function resetPortfolio() {
+            if (confirm("Load a different client portfolio?")) {
+                await fetch("/reset", { method: "POST" });
+                window.location.reload();
+            }
+        }
+
+    </script>
+</body>
+
+</html>
