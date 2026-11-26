@@ -4,9 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ (details.scheme_name if details else 'Scheme') }} - Scheme Details</title>
+    <title>FamilyFolio Advisor AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        (function () {
+            var serverPortId = "{{ portfolio_id }}";
+            var isLoaded = ("{{ 'true' if is_portfolio_loaded else 'false' }}" === "true");
+            if (!isLoaded || !serverPortId || sessionStorage.getItem("folio_active_tab_token") !== serverPortId) {
+                window.location.replace("{{ url_for('portfolio_dashboard') }}");
+            }
+        })();
+    </script>
 </head>
 
 <body>
@@ -82,22 +91,27 @@
                 <div class="holding-summary-grid">
                     <div class="detail-kpi-card">
                         <div class="detail-kpi-label">Invested Amount</div>
-                        <div class="detail-kpi-val">₹{{ '{:,.2f}'.format(details.holding_summary.invested_amount) }}</div>
+                        <div class="detail-kpi-val">₹{{ '{:,.2f}'.format(details.holding_summary.invested_amount) }}
+                        </div>
                         <div class="detail-kpi-sub">Total Capital Committed</div>
                     </div>
 
                     <div class="detail-kpi-card">
                         <div class="detail-kpi-label">Current Value</div>
-                        <div class="detail-kpi-val highlight-gold">₹{{ '{:,.2f}'.format(details.holding_summary.current_value) }}</div>
+                        <div class="detail-kpi-val highlight-gold">₹{{
+                            '{:,.2f}'.format(details.holding_summary.current_value) }}</div>
                         <div class="detail-kpi-sub">Market Valuation</div>
                     </div>
 
                     <div class="detail-kpi-card">
                         <div class="detail-kpi-label">Gain / Loss</div>
-                        <div class="detail-kpi-val {{ 'val-positive' if details.holding_summary.gain_loss >= 0 else 'val-negative' }}">
-                            {{ '+' if details.holding_summary.gain_loss >= 0 else '' }}₹{{ '{:,.2f}'.format(details.holding_summary.gain_loss) }}
+                        <div
+                            class="detail-kpi-val {{ 'val-positive' if details.holding_summary.gain_loss >= 0 else 'val-negative' }}">
+                            {{ '+' if details.holding_summary.gain_loss >= 0 else '' }}₹{{
+                            '{:,.2f}'.format(details.holding_summary.gain_loss) }}
                         </div>
-                        <div class="detail-kpi-sub {{ 'delta-up' if details.holding_summary.gain_loss >= 0 else 'delta-down' }}">
+                        <div
+                            class="detail-kpi-sub {{ 'delta-up' if details.holding_summary.gain_loss >= 0 else 'delta-down' }}">
                             {{ '▲' if details.holding_summary.gain_loss >= 0 else '▼' }}
                             {{ '{:+.2f}'.format(details.holding_summary.gain_loss_pct) }}% Absolute
                         </div>
@@ -105,7 +119,8 @@
 
                     <div class="detail-kpi-card">
                         <div class="detail-kpi-label">% of Portfolio</div>
-                        <div class="detail-kpi-val highlight-indigo">{{ '{:.2f}'.format(details.holding_summary.portfolio_weight) }}%</div>
+                        <div class="detail-kpi-val highlight-indigo">{{
+                            '{:.2f}'.format(details.holding_summary.portfolio_weight) }}%</div>
                         <div class="detail-kpi-sub">
                             Annualised XIRR: <b>{{ '{:.2f}'.format(details.holding_summary.xirr) }}%</b>
                         </div>
@@ -124,24 +139,28 @@
                         </div>
                         <div class="info-item">
                             <span class="info-label">Category / Sub-Sector</span>
-                            <span class="info-val"><span class="category-badge">{{ details.scheme_info.category }}</span></span>
+                            <span class="info-val"><span class="category-badge">{{ details.scheme_info.category
+                                    }}</span></span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Units Held</span>
                             <span class="info-val font-semibold">
-                                {{ '{:,.3f}'.format(details.scheme_info.units_held) if details.scheme_info.units_held else 'N/A' }}
+                                {{ '{:,.3f}'.format(details.scheme_info.units_held) if details.scheme_info.units_held
+                                else 'N/A' }}
                             </span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Latest NAV</span>
                             <span class="info-val highlight-gold font-semibold">
-                                {{ '₹{:,.2f}'.format(details.scheme_info.latest_nav) if details.scheme_info.latest_nav else 'N/A' }}
+                                {{ '₹{:,.2f}'.format(details.scheme_info.latest_nav) if details.scheme_info.latest_nav
+                                else 'N/A' }}
                             </span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Average Purchase NAV</span>
                             <span class="info-val">
-                                {{ '₹{:,.2f}'.format(details.scheme_info.avg_nav) if details.scheme_info.avg_nav else 'N/A' }}
+                                {{ '₹{:,.2f}'.format(details.scheme_info.avg_nav) if details.scheme_info.avg_nav else
+                                'N/A' }}
                             </span>
                         </div>
                         <div class="info-item">
@@ -154,7 +173,8 @@
                         </div>
                         <div class="info-item">
                             <span class="info-label">Annualised XIRR</span>
-                            <span class="info-val val-positive font-semibold">{{ '{:.2f}'.format(details.holding_summary.xirr) }}%</span>
+                            <span class="info-val val-positive font-semibold">{{
+                                '{:.2f}'.format(details.holding_summary.xirr) }}%</span>
                         </div>
                     </div>
                 </div>
@@ -171,8 +191,10 @@
                             </p>
                         </div>
                         <div class="header-stat-group">
-                            <span class="meta-pill pill-blue">Invested: <b>₹{{ '{:,.2f}'.format(details.holding_summary.invested_amount) }}</b></span>
-                            <span class="meta-pill pill-positive">Current Value: <b>₹{{ '{:,.2f}'.format(details.holding_summary.current_value) }}</b></span>
+                            <span class="meta-pill pill-blue">Invested: <b>₹{{
+                                    '{:,.2f}'.format(details.holding_summary.invested_amount) }}</b></span>
+                            <span class="meta-pill pill-positive">Current Value: <b>₹{{
+                                    '{:,.2f}'.format(details.holding_summary.current_value) }}</b></span>
                         </div>
                     </div>
                     <div class="chart-container nav-chart-wrap">
@@ -234,7 +256,8 @@
                                 <tr>
                                     <td>{{ tx.date }}</td>
                                     <td>
-                                        <span class="tx-badge {{ 'tx-fresh' if tx.type == 'FRESH' else ('tx-sip' if 'SIP' in tx.type else 'tx-add') }}">
+                                        <span
+                                            class="tx-badge {{ 'tx-fresh' if tx.type == 'FRESH' else ('tx-sip' if 'SIP' in tx.type else 'tx-add') }}">
                                             {{ tx.type }}
                                         </span>
                                     </td>
@@ -422,6 +445,10 @@
             });
         }
     </script>
+    <!-- SESSION LIFECYCLE CONTROLLER (Destroys session on server restart or browser close, keeps on refresh) -->
+    <div id="sessionLifecycleConfig" data-server-boot-id="{{ server_boot_id }}" data-portfolio-id="{{ portfolio_id }}"
+        data-portfolio-loaded="{{ 'true' if is_portfolio_loaded else 'false' }}" style="display: none;"></div>
+    <script src="{{ url_for('static', filename='session-lifecycle.js') }}"></script>
     <!-- SESSION LIFECYCLE CONTROLLER (Destroys session on server restart or browser close, keeps on refresh) -->
     <div id="sessionLifecycleConfig"
          data-server-boot-id="{{ server_boot_id }}"

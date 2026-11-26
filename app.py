@@ -1,3 +1,4 @@
+import utils.clients
 import utils.http_session
 import utils.transport
 import utils.session
@@ -74,6 +75,7 @@ def enforce_server_boot_lifecycle():
 def inject_session_lifecycle():
     return {
         "server_boot_id": SERVER_BOOT_ID,
+        "portfolio_id": session.get("portfolio_id", ""),
         "is_portfolio_loaded": bool(session.get("file_path"))
     }
 
@@ -589,6 +591,7 @@ def fetch_portfolio():
         return jsonify({
             "success": True,
             "client_name": client_name,
+            "portfolio_id": portfolio_id,
             "message": "Portfolio loaded successfully."
         })
 
@@ -720,6 +723,7 @@ def job_status(job_id):
         "success": True,
         "status": "done",
         "client_name": client_name,
+        "portfolio_id": session["portfolio_id"],
         "message": "Portfolio loaded successfully."
     })
 
@@ -949,6 +953,7 @@ def chat():
     # --------------------------------------------------------
     # Build context-aware system prompt
     # --------------------------------------------------------
+    
 
     if detected_name:
 

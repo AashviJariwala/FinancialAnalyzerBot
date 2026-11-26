@@ -5,6 +5,5 @@ __pycache__/
 Data/
 uploaded_*.xls
 uploaded_*.xlsx
-
 config.bat
 node_modules

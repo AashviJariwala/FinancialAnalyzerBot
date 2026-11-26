@@ -2032,3 +2032,35 @@ button {
     cursor: not-allowed;
     transform: none;
 }
+
+/* =========================================================
+   TAB-ISOLATED PORTFOLIO DISPLAY
+   ========================================================= */
+
+html.tab-client-empty #dashboardHeroEmpty {
+    display: flex !important;
+}
+
+html.tab-client-empty #dashboardContentLoaded {
+    display: none !important;
+}
+
+html.tab-client-empty .nav-client-meta {
+    display: none !important;
+}
+
+html.tab-client-empty #loadedClient {
+    display: none !important;
+}
+
+html.tab-client-active #dashboardHeroEmpty {
+    display: none !important;
+}
+
+html.tab-client-active #dashboardContentLoaded {
+    display: block !important;
+}
+
+html.tab-client-active .nav-client-meta {
+    display: flex !important;
+}
