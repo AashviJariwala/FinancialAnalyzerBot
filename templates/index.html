@@ -10,7 +10,17 @@
     <title>FamilyFolio Advisor AI</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-
+    <script>
+        (function () {
+            var serverPortId = "{{ portfolio_id }}";
+            var isLoaded = ("{{ 'true' if is_portfolio_loaded else 'false' }}" === "true");
+            if (isLoaded && serverPortId && sessionStorage.getItem("folio_active_tab_token") === serverPortId) {
+                document.documentElement.classList.add("tab-client-active");
+            } else {
+                document.documentElement.classList.add("tab-client-empty");
+            }
+        })();
+    </script>
 </head>
 
 <body>
@@ -439,6 +449,11 @@
                     if (statusData.status === "done") {
 
                         clearInterval(pollInterval);
+
+                        if (statusData.portfolio_id) {
+                            sessionStorage.setItem("folio_active_tab_token", statusData.portfolio_id);
+                        }
+                        if (window.markSessionActive) window.markSessionActive(statusData.portfolio_id);
 
                         showStatus(
                             "✅ Portfolio loaded successfully!",
@@ -932,6 +947,8 @@
                 btn.innerHTML = "<span>Resetting...</span>";
             }
             try {
+                sessionStorage.removeItem("folio_active_tab_token");
+                sessionStorage.removeItem("folio_session_active");
                 await fetch("/reset", { method: "POST" });
                 location.reload();
             } catch (err) {
@@ -974,11 +991,19 @@
             const isLoaded = configEl && configEl.dataset.portfolioLoaded === "true";
             const prefillQuery = configEl ? (configEl.dataset.prefillQuery || "") : "";
 
-            // Auto-load portfolio if session already has it loaded
-            if (isLoaded) {
+            const isTabActive = document.documentElement.classList.contains("tab-client-active");
+
+            // Auto-load portfolio only if this tab is the active tab for this portfolio
+            if (isLoaded && isTabActive) {
                 const loadedClientBox = document.getElementById("loadedClient");
                 if (loadedClientBox) loadedClientBox.classList.remove("hidden");
                 await loadPortfolio();
+            } else {
+                // In an empty/new tab, ensure input is clear and loaded badge is hidden
+                const clientInput = document.getElementById("clientName");
+                if (clientInput) clientInput.value = "";
+                const loadedClientBox = document.getElementById("loadedClient");
+                if (loadedClientBox) loadedClientBox.classList.add("hidden");
             }
 
             // Prefill question if user came from Scheme Details "Ask the bot"
@@ -1022,7 +1047,7 @@
     </div>
 
     <!-- SESSION LIFECYCLE CONTROLLER (Destroys session on server restart or browser close, keeps on refresh) -->
-    <div id="sessionLifecycleConfig" data-server-boot-id="{{ server_boot_id }}"
+    <div id="sessionLifecycleConfig" data-server-boot-id="{{ server_boot_id }}" data-portfolio-id="{{ portfolio_id }}"
         data-portfolio-loaded="{{ 'true' if is_portfolio_loaded else 'false' }}" style="display: none;"></div>
     <script src="{{ url_for('static', filename='session-lifecycle.js') }}"></script>
 </body>

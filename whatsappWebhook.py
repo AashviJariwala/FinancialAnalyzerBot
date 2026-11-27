@@ -28,29 +28,21 @@ MAX_HISTORY = 30
 MENU_SECTIONS = (
     ("📂 Portfolio Overview", (
         (1, "Portfolio Summary", "Summarize the amount invested, current value, gains, and annual return (XIRR)."),
-        (2, "Detailed Holdings", "List the schemes and summarize nominee information where available."),
-        (3, "Family Breakdown", "Show the portfolio allocation across family holders."),
+        (2, "Number of Schemes", "How many schemes are in my portfolio? Give only the count."),
     )),
     ("📈 Performance & Projections", (
-        (4, "Annual Return (XIRR)", "What is the portfolio's annual return (XIRR)?"),
-        (5, "Best-performing Scheme", "Which scheme is performing best? State the metric used."),
-        (6, "Highest Unrealised Gain", "Which fund has the highest unrealised gain?"),
-        (7, "Equity Funds", "List all equity funds in the portfolio."),
-        (8, "Negative Returns", "Which funds are giving negative returns?"),
+        (3, "Annual Return (XIRR)", "What is the portfolio's annual return (XIRR)?"),
+        (4, "Best-performing Scheme", "Which scheme is performing best? State the metric used."),
+        (5, "Highest Unrealised Gain", "Which fund has the highest unrealised gain?"),
+        (6, "Equity Funds", "List all equity funds in the portfolio."),
     )),
     ("📅 SIPs & Bank Details", (
-        (9, "Monthly SIP Amount", "What is the total monthly SIP amount?"),
-        (10, "Upcoming SIP Dates", "List upcoming SIP dates shown in the portfolio data."),
-        (11, "Registered Bank Details", "Show registered bank names and any already-masked account identifiers available. Omit full account numbers."),
-        (12, "Active SIPs", "Show all active SIPs."),
-        (13, "Paused or Stopped SIPs", "Which SIPs are currently paused or stopped?"),
+        (7, "Monthly SIP Amount", "What is the total monthly SIP amount?"),
+        (8, "Upcoming SIP Dates", "List upcoming SIP dates shown in the portfolio data."),
+        (9, "Active SIPs", "Show all active SIPs."),
+        (10, "Paused or Stopped SIPs", "Which SIPs are currently paused or stopped?"),
     )),
-    ("💬 Advice & Recommendations", (
-        (14, "Portfolio Improvements", "Suggest portfolio improvements based on the available data."),
-        (15, "Diversification", "Is the portfolio well diversified?"),
-        (16, "Increasing SIPs", "What should I consider before increasing my SIP amount based on current performance?"),
-        (17, "Portfolio Risk", "What is the risk profile of the portfolio based on the available data?"),
-    )),
+    
 )
 MENU_QUESTIONS = {str(n): q for _, items in MENU_SECTIONS for n, _, q in items}
 
