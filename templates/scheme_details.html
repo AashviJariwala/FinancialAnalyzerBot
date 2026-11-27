@@ -449,12 +449,6 @@
     <div id="sessionLifecycleConfig" data-server-boot-id="{{ server_boot_id }}" data-portfolio-id="{{ portfolio_id }}"
         data-portfolio-loaded="{{ 'true' if is_portfolio_loaded else 'false' }}" style="display: none;"></div>
     <script src="{{ url_for('static', filename='session-lifecycle.js') }}"></script>
-    <!-- SESSION LIFECYCLE CONTROLLER (Destroys session on server restart or browser close, keeps on refresh) -->
-    <div id="sessionLifecycleConfig"
-         data-server-boot-id="{{ server_boot_id }}"
-         data-portfolio-loaded="{{ 'true' if is_portfolio_loaded else 'false' }}"
-         style="display: none;"></div>
-    <script src="{{ url_for('static', filename='session-lifecycle.js') }}"></script>
 </body>
 
 </html>
