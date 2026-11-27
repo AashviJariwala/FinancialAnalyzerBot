@@ -1026,6 +1026,12 @@ def chat():
 
     try:
 
+        output_limit = 400
+        app.logger.info(
+            "Groq request: model=%s max_completion_tokens=%d",
+            GROQ_MODEL,
+            output_limit,
+        )
         client = groq_client or Groq(api_key=os.getenv("GROQ_API_KEY"))
 
         response = client.chat.completions.create(
@@ -1046,7 +1052,8 @@ def chat():
 
             ],
 
-            max_tokens=2048,
+              max_completion_tokens=output_limit,
+
 
         )
 
