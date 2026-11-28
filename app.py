@@ -131,14 +131,17 @@ _playwright_checked = False
 #   "error": str | None
 # }
 jobs = {}
+portfolio_download_lock = threading.Lock()
 
-
+def run_server_download(client_name):
+    with portfolio_download_lock:
+        return _download_portfolio(client_name)
 
 # ============================================================
 # DOWNLOAD PORTFOLIO
 # ============================================================
 
-def run_server_download(client_name):
+def _download_portfolio(client_name):
 
 
     with sync_playwright() as p:
@@ -392,6 +395,7 @@ def run_server_download(client_name):
 
         return file_path
 
+    
 
 # ============================================================
 # LOAD ANALYZER

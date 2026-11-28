@@ -1,20 +1,32 @@
+from __future__ import annotations
+
 import os
 import re
-import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.parse import quote
 
 import pandas as pd
-from groq import Groq
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
-groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+def _to_float(val: Any) -> float:
+    """Safely convert any numeric or string value to float, handling currency symbols and commas."""
+    if val is None or pd.isna(val):
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).replace(',', '').replace('₹', '').replace('Rs.', '').replace('Rs', '').strip()
+    if not s or s in ('-', '--', 'N/A', 'NA', 'None', 'null'):
+        return 0.0
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return 0.0
+
 
 class FinancialAnalyzer:
-    """A Mutual Fund Advisor bot that parses a client's Excel portfolio and answers queries using GroqCloud."""
+    """A Mutual Fund Advisor tool that parses a client's Excel portfolio."""
 
     def __init__(self, excel_path: str | Path):
         self.excel_path = Path(excel_path)
@@ -342,16 +354,16 @@ class FinancialAnalyzer:
             client_name = m.group(1).replace('_', ' ') if m else "Valued Client"
 
         # Summary KPIs
-        total_sip = sum(float(h.get('SIP') or 0) for h in holders)
-        total_cost = sum(float(h.get('Cost of Investment') or 0) for h in holders)
-        total_current = sum(float(h.get('Current Value') or 0) for h in holders)
+        total_sip = sum(_to_float(h.get('SIP')) for h in holders)
+        total_cost = sum(_to_float(h.get('Cost of Investment')) for h in holders)
+        total_current = sum(_to_float(h.get('Current Value')) for h in holders)
         net_gain = total_current - total_cost
         gain_pct = (net_gain / total_cost * 100) if total_cost > 0 else 0
 
         # Weighted XIRR & ABS
-        weighted_xirr_sum = sum(float(h.get('XIRR') or 0) * float(h.get('Current Value') or 0) for h in holders)
+        weighted_xirr_sum = sum(_to_float(h.get('XIRR')) * _to_float(h.get('Current Value')) for h in holders)
         avg_xirr = (weighted_xirr_sum / total_current) if total_current > 0 else 0
-        abs_return = float(holders[0].get('ABS') or 0) if (holders and holders[0].get('ABS')) else gain_pct
+        abs_return = _to_float(holders[0].get('ABS')) if (holders and holders[0].get('ABS')) else gain_pct
 
         # Map Folio Wise details by Scheme Name
         folio_map = {}
@@ -380,27 +392,27 @@ class FinancialAnalyzer:
                 name = str(s.get('Scheme Name', '')).strip()
                 if not name or name.lower() == 'total':
                     continue
-                cost = float(s.get('Cost of Investment') or 0)
-                val = float(s.get('Current Value') or 0)
-                pl = float(s.get('Notional P/L') or (val - cost))
-                ret_pct = float(s.get('ABS') or ((pl / cost * 100) if cost > 0 else 0))
-                xirr_val = float(s.get('XIRR') or 0)
-                weight = float(s.get('Mkt Wgt') or ((val / total_current * 100) if total_current > 0 else 0))
+                cost = _to_float(s.get('Cost of Investment'))
+                val = _to_float(s.get('Current Value'))
+                pl = _to_float(s.get('Notional P/L') if s.get('Notional P/L') is not None else (val - cost))
+                ret_pct = _to_float(s.get('ABS') if s.get('ABS') is not None else ((pl / cost * 100) if cost > 0 else 0))
+                xirr_val = _to_float(s.get('XIRR'))
+                weight = _to_float(s.get('Mkt Wgt') if s.get('Mkt Wgt') is not None else ((val / total_current * 100) if total_current > 0 else 0))
 
                 t_match = tx_map.get(name, {})
                 f_match = folio_map.get(name, {})
 
                 cat = t_match.get('Sub Sector') or t_match.get('Sector') or 'Equity Mutual Fund'
                 fund_house = self._detect_fund_house(name, amc_list)
-                units = float(f_match.get('Units') or t_match.get('Units') or 0)
-                curr_nav = float(f_match.get('Current NAV') or 0)
-                avg_nav = float(f_match.get('Avg NAV') or 0)
+                units = _to_float(f_match.get('Units') or t_match.get('Units'))
+                curr_nav = _to_float(f_match.get('Current NAV'))
+                avg_nav = _to_float(f_match.get('Avg NAV'))
                 folio_no = str(f_match.get('Folio No') or '')
                 nominee = str(f_match.get('Nominee') or '')
 
                 schemes.append({
                     'scheme_name': name,
-                    'url_name': urllib.parse.quote(name, safe=''),
+                    'url_name': quote(name, safe=''),
                     'category': cat,
                     'fund_house': fund_house,
                     'invested_amount': round(cost, 2),
@@ -418,11 +430,11 @@ class FinancialAnalyzer:
                 })
         else:
             for name, f_match in folio_map.items():
-                cost = float(f_match.get('Cost of Investment') or 0)
-                val = float(f_match.get('Current value') or 0)
-                pl = float(f_match.get('Notional P/L') or (val - cost))
-                ret_pct = float(f_match.get('ABS') or ((pl / cost * 100) if cost > 0 else 0))
-                xirr_val = float(f_match.get('XIRR') or 0)
+                cost = _to_float(f_match.get('Cost of Investment'))
+                val = _to_float(f_match.get('Current value'))
+                pl = _to_float(f_match.get('Notional P/L') if f_match.get('Notional P/L') is not None else (val - cost))
+                ret_pct = _to_float(f_match.get('ABS') if f_match.get('ABS') is not None else ((pl / cost * 100) if cost > 0 else 0))
+                xirr_val = _to_float(f_match.get('XIRR'))
                 weight = (val / total_current * 100) if total_current > 0 else 0
                 t_match = tx_map.get(name, {})
                 cat = t_match.get('Sub Sector') or t_match.get('Sector') or 'Equity Mutual Fund'
@@ -430,7 +442,7 @@ class FinancialAnalyzer:
 
                 schemes.append({
                     'scheme_name': name,
-                    'url_name': urllib.parse.quote(name, safe=''),
+                    'url_name': quote(name, safe=''),
                     'category': cat,
                     'fund_house': fund_house,
                     'invested_amount': round(cost, 2),
@@ -440,9 +452,9 @@ class FinancialAnalyzer:
                     'return_pct': round(ret_pct, 2),
                     'xirr': round(xirr_val, 2),
                     'portfolio_weight': round(weight, 2),
-                    'units': float(f_match.get('Units') or 0),
-                    'current_nav': float(f_match.get('Current NAV') or 0),
-                    'avg_nav': float(f_match.get('Avg NAV') or 0),
+                    'units': _to_float(f_match.get('Units')),
+                    'current_nav': _to_float(f_match.get('Current NAV')),
+                    'avg_nav': _to_float(f_match.get('Avg NAV')),
                     'folio_no': str(f_match.get('Folio No') or ''),
                     'nominee': str(f_match.get('Nominee') or ''),
                 })
@@ -507,9 +519,9 @@ class FinancialAnalyzer:
         for t in all_txs:
             tname = str(t.get(tx_col) or t.get('Scheme Name') or t.get('Sheme Name') or '').strip().lower()
             if tname == matched['scheme_name'].strip().lower() or tname == target:
-                amt = float(t.get('Amount') or 0)
-                units = float(t.get('Units') or 0)
-                nav = float(t.get('NavRate') or 0)
+                amt = _to_float(t.get('Amount'))
+                units = _to_float(t.get('Units'))
+                nav = _to_float(t.get('NavRate'))
                 dt_str = str(t.get('Date') or '')
                 tx_type = str(t.get('Transaction') or 'SIP')
 
