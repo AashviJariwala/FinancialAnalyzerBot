@@ -1,20 +1,17 @@
-import utils.http_session
-import utils.transport
-import utils.session
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from pathlib import Path
-from financialAnalyzer import FinancialAnalyzer
-from dotenv import load_dotenv
-import os
-import subprocess
-import sys
 import datetime
-import uuid
-import threading
 import logging
+import os
+import threading
 import urllib.parse
+import uuid
+from pathlib import Path
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from groq import Groq
 from playwright.sync_api import sync_playwright
+
+from financialAnalyzer import FinancialAnalyzer
 
 load_dotenv()
 
@@ -525,88 +522,6 @@ def scheme_details(scheme_name=None):
 
 
 # ============================================================
-# FETCH CLIENT PORTFOLIO
-# ============================================================
-
-@app.route(
-    "/fetch-portfolio",
-    methods=["POST"]
-)
-def fetch_portfolio():
-
-    client_name = request.form.get(
-        "client_name",
-        ""
-    ).strip()
-
-    if not client_name:
-
-        return jsonify({
-            "success": False,
-            "error": "Please enter client name."
-        })
-
-    try:
-
-        # ----------------------------------------------------
-        # Download Excel
-        # ----------------------------------------------------
-
-        file_path = run_server_download(
-            client_name
-        )
-
-        # ----------------------------------------------------
-        # Load FinancialAnalyzer
-        # ----------------------------------------------------
-
-        analyzer = load_analyzer(
-            file_path
-        )
-
-        if analyzer is None:
-
-            return jsonify({
-                "success": False,
-                "error": "Could not parse portfolio data."
-            })
-
-        # ----------------------------------------------------
-        # Generate session ID
-        # ----------------------------------------------------
-
-        portfolio_id = str(
-            uuid.uuid4()
-        )
-
-        session["portfolio_id"] = portfolio_id
-
-        session["file_path"] = file_path
-
-        session["client_name"] = client_name
-
-        session["chat_history"] = []
-
-        return jsonify({
-            "success": True,
-            "client_name": client_name,
-            "portfolio_id": portfolio_id,
-            "message": "Portfolio loaded successfully."
-        })
-
-    except Exception as e:
-
-        import traceback
-        print("fetch_portfolio error:", traceback.format_exc())
-
-        # Always return JSON so the browser never receives an HTML error page
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
-# ============================================================
 # BACKGROUND JOB: START FETCH (non-blocking)
 # Returns a job_id immediately. The heavy Playwright work runs
 # in a background thread. Frontend polls /job-status/<job_id>.
@@ -1025,6 +940,12 @@ def chat():
 
     try:
 
+        output_limit = 400
+        app.logger.info(
+            "Groq request: model=%s max_completion_tokens=%d",
+            GROQ_MODEL,
+            output_limit,
+        )
         client = groq_client or Groq(api_key=os.getenv("GROQ_API_KEY"))
 
         response = client.chat.completions.create(
@@ -1045,7 +966,8 @@ def chat():
 
             ],
 
-            max_tokens=2048,
+              max_completion_tokens=output_limit,
+
 
         )
 

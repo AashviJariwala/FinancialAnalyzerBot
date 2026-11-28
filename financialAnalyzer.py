@@ -1,12 +1,12 @@
-import pandas as pd
 import os
-from groq import Groq
-import json
 import re
 import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+
+import pandas as pd
+from groq import Groq
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
@@ -23,7 +23,6 @@ class FinancialAnalyzer:
         
         # Parse the entire Excel workbook
         self.portfolio_data = self._parse_workbook()
-        self.portfolio_summary_markdown = self._generate_markdown_summary()
 
     def _clean_val(self, val: Any) -> Any:
         if pd.isna(val):
@@ -182,51 +181,6 @@ class FinancialAnalyzer:
 
         return data
 
-    def _generate_markdown_summary(self) -> str:
-        """Create a detailed, context-rich Markdown representation of the parsed portfolio data."""
-        lines = []
-        lines.append("# MUTUAL FUND PORTFOLIO SUMMARY REPORT")
-        
-        # Holder Wise summary
-        if 'holders' in self.portfolio_data:
-            lines.append("\n## Holder Overview")
-            for h in self.portfolio_data['holders']:
-                lines.append(f"- **{h.get('Holder Name')}**: SIP: Rs.{h.get('SIP') or 0}, Current Value: Rs.{h.get('Current Value') or 0}, XIRR: {h.get('XIRR') or 0}%, ABS: {h.get('ABS') or 0}%")
-
-        # Active SIPs
-        if 'active_sips' in self.portfolio_data:
-            lines.append("\n## Active SIP Details")
-            for s in self.portfolio_data['active_sips']:
-                lines.append(f"- Holder: **{s.get('Holder Name')}** | Scheme: **{s.get('Scheme Name')}** | SIP Amount: Rs.{s.get('Amount')} | Frequency: {s.get('Frequency')} | Date: {s.get('Sip Date')}")
-
-        # Categories
-        if 'categories' in self.portfolio_data:
-            lines.append("\n## Asset Allocation by Category")
-            for c in self.portfolio_data['categories']:
-                lines.append(f"- **{c.get('Category Name')}**: Cost: Rs.{c.get('Cost of Investment') or 0}, Current Value: Rs.{c.get('Current Value') or 0}, XIRR: {c.get('XIRR') or 0}%")
-
-        # Portfolio schemes detailed
-        if 'portfolio_schemes' in self.portfolio_data:
-            lines.append("\n## Detailed Schemes by Holder")
-            for holder, schemes in self.portfolio_data['portfolio_schemes'].items():
-                lines.append(f"\n### Holder: {holder}")
-                for s in schemes:
-                    lines.append(
-                        f"- Scheme: **{s.get('Scheme Name')}**\n"
-                        f"  - Folio No: {s.get('Folio No')}\n"
-                        f"  - Cost of Investment: Rs.{s.get('Cost of Investment') or 0}\n"
-                        f"  - Current Value: Rs.{s.get('Current value') or 0}\n"
-                        f"  - Units: {s.get('Units')}\n"
-                        f"  - Cost NAV (Avg NAV): Rs.{s.get('Avg NAV') or 0}\n"
-                        f"  - Current NAV: Rs.{s.get('Current NAV') or 0}\n"
-                        f"  - Notional P/L: Rs.{s.get('Notional P/L') or 0}\n"
-                        f"  - Booked P/L: Rs.{s.get('Booked P/L') or 0}\n"
-                        f"  - XIRR: {s.get('XIRR') or 0}%\n"
-                        f"  - Nominee: {s.get('Nominee') or 'Not specified'}"
-                    )
-        
-        return "\n".join(lines)
-
     def _generate_compact_summary(self) -> str:
         """Create a compact summary for the LLM system prompt to reduce token count and speed up responses."""
         lines = []
@@ -310,32 +264,6 @@ class FinancialAnalyzer:
                         )
 
         return "\n".join(lines)
-
-    def answer_question(self, query: str) -> str:
-        """Get advice or fact retrieval from GroqCloud as a professional Mutual Fund Advisor."""
-        # Use compact summary to reduce token count (~800 tokens instead of ~4000)
-        compact_data = self._generate_compact_summary()
-
-        holders_names = ", ".join([h.get('Holder Name') for h in self.portfolio_data.get('holders', []) if h.get('Holder Name')])
-        system_prompt = (
-            f"You are a Mutual Fund Advisor for clients {holders_names}.\n"
-            f"{compact_data}\n\n"
-            "Rules: Use exact figures from above data. Be concise. Address clients by name."
-        )
-
-        try:
-            client = groq_client or Groq(api_key=os.getenv("GROQ_API_KEY"))
-            response = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query}
-                ],
-                max_tokens=512,
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"Error contacting GroqCloud ({GROQ_MODEL}): {e}."
 
     def get_valuation_date(self) -> str:
         """Extract portfolio valuation date from filename or transactions."""
